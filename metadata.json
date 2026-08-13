@@ -1,0 +1,6 @@
+{
+  "name": "Sistema de Evaluación de Encuestas - GCFO0131 y GCFO0192",
+  "description": "Plataforma para evaluar encuestas de satisfacción para los formatos GCFO0131 y GCFO0192 con escala de 1 a 10, captura condicional de motivos para calificaciones < 8, y generación de reportes automatizados.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
