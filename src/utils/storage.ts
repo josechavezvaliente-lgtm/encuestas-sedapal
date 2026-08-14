@@ -180,6 +180,19 @@ export async function deleteStoredSurvey(id: string): Promise<void> {
   }
 }
 
+// Funciones requeridas y exportadas para App.tsx
+export async function fetchStoredResponses(): Promise<SurveyResponse[]> {
+  return await getStoredSurveys();
+}
+
+export async function saveSurveyResponseAsync(survey: SurveyResponse): Promise<void> {
+  await saveSurveyResponse(survey);
+}
+
+export async function updateSurveyResponseAsync(survey: SurveyResponse): Promise<void> {
+  await saveSurveyResponse(survey);
+}
+
 export async function generateFormatReport(formatType: FormatType, selectedServiceType?: string): Promise<FormatReport> {
   const allSurveys = await getStoredSurveys();
   const surveys = allSurveys.filter(s => {
