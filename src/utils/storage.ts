@@ -58,34 +58,38 @@ export async function resetQuestionsAsync(format: FormatType): Promise<Question[
   return getStoredQuestions();
 }
 
-// Guardar encuesta mapeando correctamente todos los campos hacia Supabase
+// Guardar encuesta directamente en Supabase con depuración de errores
 export async function saveSurvey(survey: SurveyResponse): Promise<boolean> {
   try {
-    const { error } = await supabase.from('evaluaciones').insert([
-      {
-        id: survey.id,
-        formato: survey.formatType || 'GCFO0131',
-        created_at: survey.createdAt || new Date().toISOString(),
-        nombre_cliente: survey.clientName || 'Sin nombre',
-        empresa: survey.companyName || (survey as any).empresa || null,
-        expediente: survey.serviceOrderOrExpedient || (survey as any).expediente || (survey as any).serviceOrder || null,
-        inspector: survey.inspectorName || (survey as any).inspector || null,
-        canal_servicio: survey.serviceChannel || (survey as any).canalServicio || 'Presencial',
-        tipo_servicio: survey.serviceProvidedType || (survey as any).tipoServicio || (survey as any).serviceType || 'No especificado',
-        puntaje: survey.averageScore || 0,
-        respuestas: survey.answers || [],
-        comentarios: survey.generalComments || (survey as any).comentarios || null,
-        notas_bajas: survey.lowScoreCount || 0,
-      },
-    ]);
+    const payload = {
+      id: survey.id,
+      formato: survey.formatType || 'GCFO0131',
+      created_at: survey.createdAt || new Date().toISOString(),
+      nombre_cliente: survey.clientName || 'Sin nombre',
+      empresa: survey.companyName || (survey as any).empresa || null,
+      expediente: survey.serviceOrderOrExpedient || (survey as any).expediente || null,
+      inspector: survey.inspectorName || (survey as any).inspector || null,
+      canal_servicio: survey.serviceChannel || 'Presencial',
+      tipo_servicio: survey.serviceProvidedType || 'No especificado',
+      puntaje: survey.averageScore || 0,
+      respuestas: survey.answers || [],
+      comentarios: survey.generalComments || null,
+      notas_bajas: survey.lowScoreCount || 0,
+    };
+
+    console.log("Enviando a Supabase:", payload);
+
+    const { data, error } = await supabase.from('evaluaciones').insert([payload]);
 
     if (error) {
-      console.error('Error al guardar en Supabase:', error);
+      console.error('Error detallado de Supabase al insertar:', error.message, error.details, error.hint);
       return false;
     }
+    
+    console.log('¡Guardado exitoso en Supabase!', data);
     return true;
   } catch (err) {
-    console.error('Excepción al guardar encuesta:', err);
+    console.error('Excepción crítica al guardar encuesta:', err);
     return false;
   }
 }
