@@ -1,3 +1,171 @@
+import { SurveyResponse, FormatType, FormatReport, SectionMetrics, QuestionMetrics, Question } from '../types';
+import { GCFO0131_QUESTIONS, SAMPLE_SURVEY_RESPONSES, GCFO0131_TITLE } from '../data/initialQuestions';
+import { createClient } from '@supabase/supabase-js';
+
+// Configuración de Supabase
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_KEY || '';
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+const STORAGE_KEY = 'sedapal_survey_responses_v1';
+const QUESTIONS_STORAGE_KEY = 'sedapal_custom_questions_v4';
+
+export function getStoredQuestions(): Question[] {
+  try {
+    const raw = localStorage.getItem(QUESTIONS_STORAGE_KEY);
+    if (raw) {
+      const map = JSON.parse(raw);
+      if (map && map['GCFO0131'] && Array.isArray(map['GCFO0131']) && map['GCFO0131'].length > 0) {
+        return map['GCFO0131'];
+      }
+    }
+  } catch (e) {
+    console.error('Error reading custom questions from localStorage:', e);
+  }
+  return GCFO0131_QUESTIONS;
+}
+
+export async function fetchStoredQuestionsMap(): Promise<{ GCFO0131: Question[] }> {
+  return {
+    GCFO0131: getStoredQuestions()
+  };
+}
+
+export async function saveQuestionsAsync(format: FormatType, questions: Question[]): Promise<Question[]> {
+  try {
+    const raw = localStorage.getItem(QUESTIONS_STORAGE_KEY);
+    const map = raw ? JSON.parse(raw) : {};
+    map[format] = questions;
+    localStorage.setItem(QUESTIONS_STORAGE_KEY, JSON.stringify(map));
+  } catch (e) {
+    console.error('Error saving questions:', e);
+  }
+  return questions;
+}
+
+// Guardar encuesta mapeando todos los campos completos hacia Supabase
+export async function saveSurvey(survey: SurveyResponse): Promise<boolean> {
+  try {
+    const { error } = await supabase.from('evaluaciones').insert([
+      {
+        id: survey.id,
+        formato: survey.formatType,
+        created_at: survey.createdAt,
+        nombre_cliente: survey.clientName,
+        empresa: survey.companyName || null,
+        expediente: survey.serviceOrderOrExpedient || null,
+        inspector: survey.inspectorName || null,
+        canal_servicio: survey.serviceChannel || null,
+        tipo_servicio: survey.serviceProvidedType || null,
+        puntaje: survey.averageScore,
+        respuestas: survey.answers,
+        comentarios: survey.generalComments || null,
+        notas_bajas: survey.lowScoreCount,
+      },
+    ]);
+
+    if (error) {
+      console.error('Error al guardar en Supabase:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Excepción al guardar encuesta:', err);
+    return false;
+  }
+}
+
+// Cargar todas las encuestas desde Supabase mapeándolas a SurveyResponse
+export async function loadSurveys(): Promise<SurveyResponse[]> {
+  try {
+    const { data, error } = await supabase
+      .from('evaluaciones')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error al cargar desde Supabase:', error);
+      return [];
+    }
+
+    if (!data || data.length === 0) return [];
+
+    return data.map((item: any) => ({
+      id: item.id,
+      formatType: item.formato || 'GCFO0131',
+      createdAt: item.created_at,
+      clientName: item.nombre_cliente || '',
+      companyName: item.empresa || '',
+      serviceOrderOrExpedient: item.expediente || '',
+      inspectorName: item.inspector || '',
+      serviceChannel: item.canal_servicio || 'Presencial',
+      serviceProvidedType: item.tipo_servicio || 'No especificado',
+      answers: item.respuestas || [],
+      generalComments: item.comentarios || '',
+      averageScore: item.puntaje || 0,
+      lowScoreCount: item.notas_bajas || 0,
+    }));
+  } catch (err) {
+    console.error('Excepción al cargar encuestas:', err);
+    return [];
+  }
+}
+
+// Eliminar encuesta en Supabase
+export async function deleteSurvey(id: string): Promise<boolean> {
+  try {
+    const { error } = await supabase.from('evaluaciones').delete().eq('id', id);
+    if (error) {
+      console.error('Error al eliminar encuesta:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Excepción al eliminar encuesta:', err);
+    return false;
+  }
+}
+
+// Funciones locales de respaldo / cálculo de reportes
+export async function getStoredSurveys(): Promise<SurveyResponse[]> {
+  const remote = await loadSurveys();
+  if (remote.length > 0) return remote;
+  
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {
+    console.error(e);
+  }
+  return SAMPLE_SURVEY_RESPONSES;
+}
+
+export async function saveSurveyResponse(survey: SurveyResponse): Promise<void> {
+  await saveSurvey(survey);
+  try {
+    const current = await getStoredSurveys();
+    const updated = [survey, ...current.filter(s => s.id !== survey.id)];
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+export async function deleteStoredSurvey(id: string): Promise<void> {
+  await deleteSurvey(id);
+  try {
+    const current = await getStoredSurveys();
+    const updated = current.filter(s => s.id !== id);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  } catch (e) {
+    console.error(e);
+  }
+}
+
 export async function generateFormatReport(formatType: FormatType, selectedServiceType?: string): Promise<FormatReport> {
   const allSurveys = await getStoredSurveys();
   const surveys = allSurveys.filter(s => {
