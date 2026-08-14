@@ -1,4 +1,4 @@
-export type FormatType = 'GCFO0131' | 'GCFO0192';
+export type FormatType = 'GCFO0131';
 
 export interface Question {
   id: string;
@@ -25,6 +25,7 @@ export interface SurveyResponse {
   serviceOrderOrExpedient: string;
   inspectorName?: string;
   serviceChannel: 'Correo' | 'Teléfono' | 'WhatsApp' | 'Presencial' | 'Portal Web';
+  serviceProvidedType?: string;
   answers: QuestionAnswer[];
   generalComments?: string;
   averageScore: number;
@@ -56,6 +57,7 @@ export interface QuestionMetrics {
 export interface FormatReport {
   formatType: FormatType;
   formatTitle: string;
+  selectedServiceType?: string;
   totalSurveys: number;
   overallAverage: number;
   csatIndex: number; // % of all answers across all surveys >= 8
@@ -71,5 +73,14 @@ export interface FormatReport {
     score: number;
     motive: string;
     responseId: string;
+  }[];
+  allComments: {
+    responseId: string;
+    clientName: string;
+    companyName?: string;
+    serviceOrder: string;
+    date: string;
+    serviceType?: string;
+    comment: string;
   }[];
 }

@@ -3,11 +3,12 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar
 } from 'recharts';
-import { FileText, Download, AlertCircle, CheckCircle2, Search, Filter, Printer, ArrowUpRight, Award, ChevronDown, ChevronUp } from 'lucide-react';
+import { FileText, Download, AlertCircle, CheckCircle2, Search, Filter, Printer, ArrowUpRight, Award, ChevronDown, ChevronUp, MessageSquare } from 'lucide-react';
 import { FormatType, FormatReport, SurveyResponse } from '../types';
 import { generateFormatReport } from '../utils/storage';
 import { exportReportToCSV, exportReportToPDF } from '../utils/export';
 import { AiExecutiveSummary } from './AiExecutiveSummary';
+import { SedapalLogo } from './SedapalLogo';
 
 interface ReportsDashboardProps {
   responses: SurveyResponse[];
@@ -21,13 +22,12 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
   setSelectedFormat
 }) => {
   const [motiveSearch, setMotiveSearch] = useState('');
+  const [commentsSearch, setCommentsSearch] = useState('');
   const [selectedScoreFilter, setSelectedScoreFilter] = useState<number | 'all'>('all');
+  const [selectedServiceType, setSelectedServiceType] = useState<string>('all');
   const [expandedQuestionId, setExpandedQuestionId] = useState<string | null>(null);
 
-  const report192 = generateFormatReport('GCFO0192', responses);
-  const report131 = generateFormatReport('GCFO0131', responses);
-
-  const activeReport = selectedFormat === 'GCFO0192' ? report192 : report131;
+  const activeReport = generateFormatReport('GCFO0131', responses, selectedServiceType);
 
   // Filter motives
   const filteredMotives = activeReport.allMotives.filter(m => {
@@ -41,12 +41,23 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
     return matchesSearch && matchesScore;
   });
 
-  // Chart data: section averages
-  const sectionChartData = activeReport.sectionMetrics.map(sec => ({
-    name: sec.sectionTitle.split('.')[0] || sec.sectionTitle,
-    fullName: sec.sectionTitle,
-    promedio: sec.averageScore,
-    csat: sec.csatPercentage
+  // Filter comments
+  const filteredComments = (activeReport.allComments || []).filter(c => {
+    return (
+      c.comment.toLowerCase().includes(commentsSearch.toLowerCase()) ||
+      c.clientName.toLowerCase().includes(commentsSearch.toLowerCase()) ||
+      c.serviceOrder.toLowerCase().includes(commentsSearch.toLowerCase())
+    );
+  });
+
+  // Chart data: per-question averages
+  const questionChartData = activeReport.questionMetrics.map(qm => ({
+    name: `Pregunta ${qm.questionNumber}`,
+    shortName: `P${qm.questionNumber}`,
+    fullName: `P${qm.questionNumber}: ${qm.text}`,
+    promedio: qm.averageScore,
+    csat: qm.csatPercentage,
+    lowScoresCount: qm.lowScoresCount
   }));
 
   // Chart data: rating distribution (1 to 10)
@@ -73,8 +84,8 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center space-x-2">
-            <span className="bg-sky-100 text-sky-800 text-xs font-bold px-2.5 py-0.5 rounded-md border border-sky-200">
-              Reporte Automatizado de Gestión
+            <span className="bg-[#E8F4FC] text-[#005DAA] text-xs font-extrabold px-2.5 py-0.5 rounded-md border border-[#B3D8F5]">
+              Reporte Automatizado de Gestión SEDAPAL
             </span>
             <span className="text-xs text-slate-400 font-medium">
               Actualizado en tiempo real
@@ -83,56 +94,123 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
           <h1 className="text-xl font-bold text-slate-900 mt-1">
             Resultados para {activeReport.formatTitle}
           </h1>
-          <p className="text-xs text-slate-500">
+          
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center space-x-1.5 bg-[#E8F4FC] text-[#003865] border border-[#B3D8F5] px-3 py-1 rounded-lg text-xs font-semibold">
+              <Filter className="w-3.5 h-3.5 text-[#005DAA]" />
+              <span>
+                Tipo de Servicio Evaluado:{' '}
+                <strong className="font-extrabold text-[#003865]">
+                  {!selectedServiceType || selectedServiceType === 'all'
+                    ? 'Todos los Tipos de Servicio (Consolidado General)'
+                    : selectedServiceType}
+                </strong>
+              </span>
+            </span>
+          </div>
+
+          <p className="text-xs text-slate-500 mt-1.5">
             Consolidado estadístico, distribución de respuestas, e índice de justificaciones para notas &le; 8.
           </p>
         </div>
 
-        {/* Format Selector & Export Buttons */}
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Format Tabs */}
-          <div className="bg-slate-100 p-1 rounded-xl flex items-center border border-slate-200">
-            <button
-              onClick={() => setSelectedFormat('GCFO0192')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
-                selectedFormat === 'GCFO0192' ? 'bg-sky-600 text-white shadow' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              GCFO0192 ({report192.totalSurveys})
-            </button>
-            <button
-              onClick={() => setSelectedFormat('GCFO0131')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
-                selectedFormat === 'GCFO0131' ? 'bg-sky-600 text-white shadow' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              GCFO0131 ({report131.totalSurveys})
-            </button>
+        {/* SEDAPAL Logo & Export Buttons */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          <div className="bg-slate-50 p-2 rounded-xl border border-slate-200/80 hidden lg:block">
+            <SedapalLogo variant="light" size="sm" />
           </div>
 
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => exportReportToPDF(activeReport)}
+              disabled={activeReport.totalSurveys === 0}
+              className="flex items-center space-x-1.5 bg-[#005DAA] hover:bg-[#004880] text-white px-4 py-2.5 rounded-xl text-xs font-extrabold shadow-md hover:shadow-lg transition disabled:opacity-50"
+            >
+              <Download className="w-3.5 h-3.5 text-sky-200" />
+              <span>PDF Oficial SEDAPAL</span>
+            </button>
+
+            <button
+              onClick={() => exportReportToCSV(activeReport, responses)}
+              disabled={activeReport.totalSurveys === 0}
+              className="flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2.5 rounded-xl text-xs font-bold border border-slate-700 shadow transition disabled:opacity-50"
+            >
+              <FileText className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Excel / CSV</span>
+            </button>
+
+            <button
+              onClick={() => window.print()}
+              className="flex items-center space-x-1 bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2.5 rounded-xl text-xs font-semibold border border-slate-200 transition"
+            >
+              <Printer className="w-3.5 h-3.5 text-slate-500" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Filter Bar by Tipo de Servicio Brindado */}
+      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+        <div className="flex items-center justify-between">
+          <label className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center space-x-2">
+            <Filter className="w-3.5 h-3.5 text-sky-600" />
+            <span>Filtrar Reportes por Tipo de Servicio Brindado:</span>
+          </label>
+          <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full">
+            {activeReport.totalSurveys} encuesta(s) coincidente(s)
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
           <button
-            onClick={() => exportReportToPDF(activeReport)}
-            disabled={activeReport.totalSurveys === 0}
-            className="flex items-center space-x-1.5 bg-slate-900 hover:bg-slate-800 text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow transition disabled:opacity-50"
+            type="button"
+            onClick={() => setSelectedServiceType('all')}
+            className={`p-3 rounded-xl border text-left text-xs font-semibold transition flex items-center justify-between ${
+              selectedServiceType === 'all'
+                ? 'bg-sky-600 text-white border-sky-600 shadow-sm'
+                : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+            }`}
           >
-            <Download className="w-3.5 h-3.5 text-sky-400" />
-            <span>PDF Oficial</span>
+            <span>Todos los tipos de servicio</span>
+            <span className={`text-[10px] px-2 py-0.5 rounded-md font-bold ${
+              selectedServiceType === 'all' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'
+            }`}>
+              Consolidado
+            </span>
           </button>
 
           <button
-            onClick={() => exportReportToCSV(activeReport, responses)}
-            disabled={activeReport.totalSurveys === 0}
-            className="flex items-center space-x-1.5 bg-emerald-700 hover:bg-emerald-600 text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow transition disabled:opacity-50"
+            type="button"
+            onClick={() => setSelectedServiceType('Servicios de Evaluación Metrológica de Medidores (evaluación de muestras, aguas subterráneas, control de calidad, etc.)')}
+            className={`p-3 rounded-xl border text-left text-xs font-semibold transition flex items-center justify-between ${
+              selectedServiceType === 'Servicios de Evaluación Metrológica de Medidores (evaluación de muestras, aguas subterráneas, control de calidad, etc.)'
+                ? 'bg-sky-600 text-white border-sky-600 shadow-sm'
+                : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+            }`}
           >
-            <FileText className="w-3.5 h-3.5" />
-            <span>Excel / CSV</span>
+            <span className="line-clamp-2">Evaluación Metrológica de Medidores</span>
+            <span className={`text-[10px] px-2 py-0.5 rounded-md font-bold shrink-0 ml-1.5 ${
+              selectedServiceType === 'Servicios de Evaluación Metrológica de Medidores (evaluación de muestras, aguas subterráneas, control de calidad, etc.)' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'
+            }`}>
+              Metrología
+            </span>
           </button>
 
           <button
-            onClick={() => window.print()}
-            className="flex items-center space-x-1 bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-xl text-xs font-semibold border border-slate-200 transition"
+            type="button"
+            onClick={() => setSelectedServiceType('Servicios de verificación acreditados / UVM (remesas de verificación posterior, verificación inicial)')}
+            className={`p-3 rounded-xl border text-left text-xs font-semibold transition flex items-center justify-between ${
+              selectedServiceType === 'Servicios de verificación acreditados / UVM (remesas de verificación posterior, verificación inicial)'
+                ? 'bg-sky-600 text-white border-sky-600 shadow-sm'
+                : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+            }`}
           >
-            <Printer className="w-3.5 h-3.5 text-slate-500" />
+            <span className="line-clamp-2">Verificación Acreditada / UVM</span>
+            <span className={`text-[10px] px-2 py-0.5 rounded-md font-bold shrink-0 ml-1.5 ${
+              selectedServiceType === 'Servicios de verificación acreditados / UVM (remesas de verificación posterior, verificación inicial)' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'
+            }`}>
+              UVM
+            </span>
           </button>
         </div>
       </div>
@@ -227,21 +305,21 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
           {/* Charts Section */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             
-            {/* Chart 1: Promedio por Sección */}
+            {/* Chart 1: Promedio por Pregunta */}
             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
               <h3 className="text-sm font-bold text-slate-900 mb-1">
-                Puntaje Promedio por Sección de Evaluación
+                Puntaje Promedio por Pregunta
               </h3>
               <p className="text-xs text-slate-500 mb-4">
-                Desempeño en escala de 1 a 10 para cada categoría del formato {selectedFormat}
+                Desempeño en escala de 1 a 10 para cada una de las {activeReport.questionMetrics.length} preguntas evaluadas
               </p>
 
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={sectionChartData} margin={{ top: 10, right: 10, left: -20, bottom: 25 }}>
+                  <BarChart data={questionChartData} margin={{ top: 10, right: 10, left: -20, bottom: 25 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                     <XAxis
-                      dataKey="name"
+                      dataKey="shortName"
                       tick={{ fontSize: 11, fill: '#64748b' }}
                       interval={0}
                     />
@@ -251,7 +329,14 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
                       labelFormatter={(label, items) => items[0]?.payload?.fullName || label}
                       contentStyle={{ borderRadius: '12px', borderColor: '#cbd5e1', fontSize: '12px' }}
                     />
-                    <Bar dataKey="promedio" fill="#0284c7" radius={[6, 6, 0, 0]} barSize={36} />
+                    <Bar dataKey="promedio" radius={[6, 6, 0, 0]} barSize={36}>
+                      {questionChartData.map((entry, index) => (
+                        <Cell
+                          key={`qcell-${index}`}
+                          fill={entry.promedio >= 8 ? '#0284c7' : '#f59e0b'}
+                        />
+                      ))}
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -379,6 +464,90 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
                     <div className="text-[11px] text-slate-600 font-medium flex items-center justify-between border-t border-amber-200/60 pt-2">
                       <span>Cliente: <strong className="text-slate-900">{m.clientName}</strong></span>
                       <span className="text-sky-700 font-semibold">{m.sectionTitle.split('.')[0]}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Section: 2. COMENTARIOS Y SUGERENCIAS DE LOS CLIENTES */}
+          <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+              <div>
+                <div className="flex items-center space-x-2">
+                  <span className="bg-[#E8F4FC] text-[#005DAA] p-1.5 rounded-lg border border-[#B3D8F5]">
+                    <MessageSquare className="w-4 h-4" />
+                  </span>
+                  <h2 className="text-base font-bold text-slate-900">
+                    2. Comentarios y Sugerencias de los Clientes ({activeReport.allComments?.length || 0})
+                  </h2>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  Aspectos del servicio que los clientes sugieren mejorar en las encuestas evaluadas.
+                </p>
+              </div>
+
+              {/* Comments Search */}
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar en sugerencias o cliente..."
+                  value={commentsSearch}
+                  onChange={e => setCommentsSearch(e.target.value)}
+                  className="pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-200 w-full sm:w-64 bg-slate-50"
+                />
+              </div>
+            </div>
+
+            {filteredComments.length === 0 ? (
+              <div className="py-8 text-center bg-slate-50 rounded-xl border border-slate-100">
+                <MessageSquare className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                <p className="text-xs font-semibold text-slate-700">
+                  {(activeReport.allComments?.length || 0) === 0
+                    ? 'No se registraron comentarios ni sugerencias en las encuestas de este período/filtro.'
+                    : 'No se encontraron sugerencias con los términos de búsqueda actuales.'}
+                </p>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  {(activeReport.allComments?.length || 0) === 0
+                    ? 'Los comentarios adicionales ingresados en el campo 2 aparecerán aquí.'
+                    : 'Intente buscar con otro nombre de cliente o palabra clave.'}
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {filteredComments.map((c, idx) => (
+                  <div
+                    key={`${c.responseId}_${idx}`}
+                    className="bg-[#F4F9FD] border border-[#CDE5F8] rounded-2xl p-4 flex flex-col justify-between space-y-3 shadow-2xs"
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="bg-[#005DAA] text-white font-bold text-[11px] px-2.5 py-0.5 rounded-md">
+                          Doc: {c.serviceOrder}
+                        </span>
+                        <span className="text-[11px] text-slate-500 font-medium">
+                          {new Date(c.date).toLocaleDateString()}
+                        </span>
+                      </div>
+
+                      {c.serviceType && (
+                        <span className="inline-block text-[10px] font-semibold text-sky-800 bg-sky-100/70 px-2 py-0.5 rounded-md">
+                          {c.serviceType}
+                        </span>
+                      )}
+
+                      <div className="bg-white p-3 rounded-xl border border-sky-200 text-xs text-slate-900 italic leading-relaxed shadow-2xs">
+                        "{c.comment}"
+                      </div>
+                    </div>
+
+                    <div className="text-[11px] text-slate-600 font-medium flex items-center justify-between border-t border-sky-200/60 pt-2">
+                      <span>Cliente: <strong className="text-slate-900">{c.clientName}</strong></span>
+                      {c.companyName && (
+                        <span className="text-slate-400 text-[10px]">{c.companyName}</span>
+                      )}
                     </div>
                   </div>
                 ))}

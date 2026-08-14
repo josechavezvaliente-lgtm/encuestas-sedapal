@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { HelpCircle, CheckCircle2, FileText, Copy, Check, Edit3, Plus, Trash2, RotateCcw, Save, X, ArrowUp, ArrowDown, AlertCircle } from 'lucide-react';
-import { getQuestionsForFormat, GCFO0192_TITLE, GCFO0131_TITLE } from '../data/initialQuestions';
+import { getQuestionsForFormat, GCFO0131_TITLE } from '../data/initialQuestions';
 import { saveQuestionsAsync, resetQuestionsAsync, fetchStoredQuestionsMap } from '../utils/storage';
 import { FormatType, Question } from '../types';
+import { SedapalLogo } from './SedapalLogo';
 
 export const FormatQuestionsModal: React.FC = () => {
-  const [activeFormat, setActiveFormat] = useState<FormatType>('GCFO0192');
+  const activeFormat: FormatType = 'GCFO0131';
   const [questions, setQuestions] = useState<Question[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -21,7 +22,7 @@ export const FormatQuestionsModal: React.FC = () => {
   useEffect(() => {
     // Sync central questions map from backend on mount
     fetchStoredQuestionsMap().then(map => {
-      setQuestions(map[activeFormat] || getQuestionsForFormat(activeFormat));
+      setQuestions(map['GCFO0131'] || getQuestionsForFormat('GCFO0131'));
     });
   }, []);
 
@@ -30,12 +31,12 @@ export const FormatQuestionsModal: React.FC = () => {
     setIsEditing(false);
   }, [activeFormat]);
 
-  const title = activeFormat === 'GCFO0192' ? GCFO0192_TITLE : GCFO0131_TITLE;
+  const title = GCFO0131_TITLE;
 
   const handleCopyQuestions = () => {
     let text = `${title}\n\n`;
     questions.forEach(q => {
-      text += `${q.number}. ${q.text} (Sección: ${q.sectionTitle})\n`;
+      text += `${q.number}. ${q.text}\n`;
     });
     navigator.clipboard.writeText(text);
     setCopied(true);
@@ -151,45 +152,35 @@ export const FormatQuestionsModal: React.FC = () => {
 
       {/* Header Card */}
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center space-x-2">
-            <span className="bg-sky-100 text-sky-800 text-xs font-bold px-2.5 py-0.5 rounded-md border border-sky-200">
-              Estructura Oficial de Formatos
-            </span>
-            {isEditing && (
-              <span className="bg-amber-100 text-amber-800 text-xs font-bold px-2.5 py-0.5 rounded-md border border-amber-200 animate-pulse">
-                Modo Edición Activo
-              </span>
-            )}
+        <div className="flex items-center space-x-3">
+          <div className="bg-slate-50 p-2 rounded-xl border border-slate-200 hidden sm:block">
+            <SedapalLogo variant="light" size="sm" />
           </div>
-          <h1 className="text-xl font-bold text-slate-900 mt-1">
-            Banco de Preguntas para Evaluaciones
-          </h1>
-          <p className="text-xs text-slate-500">
-            Consulte o modifique la redacción y secciones normadas para los formatos GCFO0131 y GCFO0192.
-          </p>
+          <div>
+            <div className="flex items-center space-x-2">
+              <span className="bg-[#E8F4FC] text-[#005DAA] text-xs font-extrabold px-2.5 py-0.5 rounded-md border border-[#B3D8F5]">
+                SEDAPAL • Estructura de Preguntas
+              </span>
+              {isEditing && (
+                <span className="bg-amber-100 text-amber-800 text-xs font-bold px-2.5 py-0.5 rounded-md border border-amber-200 animate-pulse">
+                  Modo Edición Activo
+                </span>
+              )}
+            </div>
+            <h1 className="text-xl font-bold text-slate-900 mt-1">
+              Banco de Preguntas para Evaluaciones
+            </h1>
+            <p className="text-xs text-slate-500">
+              Consulte o modifique la redacción y secciones normadas para el formato GCFO0131.
+            </p>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* Format Switcher */}
-          <div className="bg-slate-100 p-1 rounded-xl flex items-center border border-slate-200">
-            <button
-              onClick={() => setActiveFormat('GCFO0192')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
-                activeFormat === 'GCFO0192' ? 'bg-sky-600 text-white shadow' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              GCFO0192
-            </button>
-            <button
-              onClick={() => setActiveFormat('GCFO0131')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
-                activeFormat === 'GCFO0131' ? 'bg-sky-600 text-white shadow' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              GCFO0131
-            </button>
-          </div>
+          {/* Format Badge */}
+          <span className="bg-slate-100 text-sky-800 text-xs font-bold px-3 py-1.5 rounded-xl border border-slate-200">
+            GCFO0131
+          </span>
 
           {!isEditing ? (
             <>
@@ -280,9 +271,6 @@ export const FormatQuestionsModal: React.FC = () => {
                     {q.number}
                   </span>
                   <div className="flex-1">
-                    <span className="text-[10px] uppercase font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded border border-sky-200/60 inline-block mb-1">
-                      {q.sectionTitle}
-                    </span>
                     <p className="font-semibold text-slate-900 text-sm leading-relaxed">
                       {q.text}
                     </p>
@@ -329,30 +317,16 @@ export const FormatQuestionsModal: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                        Sección o Categoría:
-                      </label>
-                      <input
-                        type="text"
-                        value={q.sectionTitle}
-                        onChange={e => handleSectionTitleChange(q.id, e.target.value)}
-                        className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 bg-white focus:ring-2 focus:ring-sky-500 focus:outline-none"
-                      />
-                    </div>
-
-                    <div className="md:col-span-2">
-                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                        Redacción de la Pregunta:
-                      </label>
-                      <textarea
-                        rows={2}
-                        value={q.text}
-                        onChange={e => handleQuestionTextChange(q.id, e.target.value)}
-                        className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs font-medium text-slate-900 bg-white focus:ring-2 focus:ring-sky-500 focus:outline-none"
-                      />
-                    </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Redacción de la Pregunta:
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={q.text}
+                      onChange={e => handleQuestionTextChange(q.id, e.target.value)}
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs font-medium text-slate-900 bg-white focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                    />
                   </div>
                 </div>
               )}

@@ -1,34 +1,33 @@
 import { SurveyResponse, FormatType, FormatReport, SectionMetrics, QuestionMetrics, Question } from '../types';
-import { GCFO0192_QUESTIONS, GCFO0131_QUESTIONS, SAMPLE_SURVEY_RESPONSES, GCFO0192_TITLE, GCFO0131_TITLE } from '../data/initialQuestions';
+import { GCFO0131_QUESTIONS, SAMPLE_SURVEY_RESPONSES, GCFO0131_TITLE } from '../data/initialQuestions';
 
 const STORAGE_KEY = 'sedapal_survey_responses_v1';
-const QUESTIONS_STORAGE_KEY = 'sedapal_custom_questions_v1';
+const QUESTIONS_STORAGE_KEY = 'sedapal_custom_questions_v4';
 
-export function getStoredQuestions(format: FormatType): Question[] {
+export function getStoredQuestions(format?: FormatType): Question[] {
   try {
     const raw = localStorage.getItem(QUESTIONS_STORAGE_KEY);
     if (raw) {
       const map = JSON.parse(raw);
-      if (map && map[format] && Array.isArray(map[format]) && map[format].length > 0) {
-        return map[format];
+      if (map && map['GCFO0131'] && Array.isArray(map['GCFO0131']) && map['GCFO0131'].length > 0) {
+        return map['GCFO0131'];
       }
     }
   } catch (e) {
     console.error('Error reading custom questions from localStorage:', e);
   }
-  return format === 'GCFO0192' ? GCFO0192_QUESTIONS : GCFO0131_QUESTIONS;
+  return GCFO0131_QUESTIONS;
 }
 
-export async function fetchStoredQuestionsMap(): Promise<{ GCFO0192: Question[]; GCFO0131: Question[] }> {
+export async function fetchStoredQuestionsMap(): Promise<{ GCFO0131: Question[] }> {
   const fallback = {
-    GCFO0192: getStoredQuestions('GCFO0192'),
     GCFO0131: getStoredQuestions('GCFO0131')
   };
   try {
     const res = await fetch('/api/questions');
     if (res.ok) {
       const data = await res.json();
-      if (data && data.GCFO0192 && data.GCFO0131) {
+      if (data && data.GCFO0131) {
         localStorage.setItem(QUESTIONS_STORAGE_KEY, JSON.stringify(data));
         return data;
       }
@@ -39,7 +38,7 @@ export async function fetchStoredQuestionsMap(): Promise<{ GCFO0192: Question[];
   return fallback;
 }
 
-export async function saveQuestionsAsync(format: FormatType, questions: Question[]): Promise<{ GCFO0192: Question[]; GCFO0131: Question[] }> {
+export async function saveQuestionsAsync(format: FormatType, questions: Question[]): Promise<{ GCFO0131: Question[] }> {
   try {
     const res = await fetch('/api/questions', {
       method: 'POST',
@@ -57,17 +56,14 @@ export async function saveQuestionsAsync(format: FormatType, questions: Question
   
   // Local fallback
   let currentMap = {
-    GCFO0192: getStoredQuestions('GCFO0192'),
-    GCFO0131: getStoredQuestions('GCFO0131')
+    GCFO0131: questions
   };
-  currentMap[format] = questions;
   localStorage.setItem(QUESTIONS_STORAGE_KEY, JSON.stringify(currentMap));
   return currentMap;
 }
 
-export async function resetQuestionsAsync(): Promise<{ GCFO0192: Question[]; GCFO0131: Question[] }> {
+export async function resetQuestionsAsync(): Promise<{ GCFO0131: Question[] }> {
   const defaultMap = {
-    GCFO0192: GCFO0192_QUESTIONS,
     GCFO0131: GCFO0131_QUESTIONS
   };
   try {
@@ -150,6 +146,36 @@ export async function saveSurveyResponseAsync(response: SurveyResponse): Promise
   return saveSurveyResponse(response);
 }
 
+export async function updateSurveyResponseAsync(updatedResponse: SurveyResponse): Promise<SurveyResponse[]> {
+  try {
+    const res = await fetch('/api/surveys', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedResponse)
+    });
+    if (res.ok) {
+      const updatedList: SurveyResponse[] = await res.json();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedList));
+      return updatedList;
+    }
+  } catch (err) {
+    console.error('Error updating survey on server:', err);
+  }
+
+  // Fallback to local storage
+  const current = getStoredResponses();
+  const index = current.findIndex(s => s.id === updatedResponse.id);
+  let updatedList: SurveyResponse[];
+  if (index >= 0) {
+    updatedList = [...current];
+    updatedList[index] = updatedResponse;
+  } else {
+    updatedList = [updatedResponse, ...current];
+  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedList));
+  return updatedList;
+}
+
 export async function deleteSurveyResponseAsync(id: string): Promise<SurveyResponse[]> {
   try {
     const res = await fetch(`/api/surveys/${id}`, { method: 'DELETE' });
@@ -198,22 +224,35 @@ export function clearAllSurveyResponses(): SurveyResponse[] {
   return [];
 }
 
-export function generateFormatReport(format: FormatType, responses: SurveyResponse[]): FormatReport {
-  const filtered = responses.filter(r => r.formatType === format);
+export function generateFormatReport(
+  format: FormatType,
+  responses: SurveyResponse[],
+  serviceProvidedType?: string
+): FormatReport {
+  const filtered = responses.filter(r => {
+    const matchesFormat = r.formatType === format;
+    const matchesService =
+      !serviceProvidedType ||
+      serviceProvidedType === 'all' ||
+      r.serviceProvidedType === serviceProvidedType;
+    return matchesFormat && matchesService;
+  });
   const questions = getStoredQuestions(format);
-  const formatTitle = format === 'GCFO0192' ? GCFO0192_TITLE : GCFO0131_TITLE;
+  const formatTitle = GCFO0131_TITLE;
 
   if (filtered.length === 0) {
     return {
       formatType: format,
       formatTitle,
+      selectedServiceType: serviceProvidedType,
       totalSurveys: 0,
       overallAverage: 0,
       csatIndex: 0,
       totalLowScores: 0,
       sectionMetrics: [],
       questionMetrics: [],
-      allMotives: []
+      allMotives: [],
+      allComments: []
     };
   }
 
@@ -330,18 +369,36 @@ export function generateFormatReport(format: FormatType, responses: SurveyRespon
     });
   });
 
+  // All comments aggregated (Section 2: Comentarios y sugerencias)
+  const allComments: FormatReport['allComments'] = [];
+  filtered.forEach(resp => {
+    if (resp.generalComments && resp.generalComments.trim()) {
+      allComments.push({
+        responseId: resp.id,
+        clientName: resp.clientName,
+        companyName: resp.companyName,
+        serviceOrder: resp.serviceOrderOrExpedient,
+        date: resp.createdAt,
+        serviceType: resp.serviceProvidedType,
+        comment: resp.generalComments.trim()
+      });
+    }
+  });
+
   const overallAverage = totalAnswerCount > 0 ? Number((totalScoreSum / totalAnswerCount).toFixed(1)) : 0;
   const csatIndex = totalAnswerCount > 0 ? Number(((totalSatisfiedCount / totalAnswerCount) * 100).toFixed(1)) : 0;
 
   return {
     formatType: format,
     formatTitle,
+    selectedServiceType: serviceProvidedType,
     totalSurveys: filtered.length,
     overallAverage,
     csatIndex,
     totalLowScores: totalLowScoresCount,
     sectionMetrics,
     questionMetrics,
-    allMotives
+    allMotives,
+    allComments
   };
 }

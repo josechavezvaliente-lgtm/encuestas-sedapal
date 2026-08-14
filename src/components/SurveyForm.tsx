@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
-import { AlertCircle, CheckCircle2, Send, FileText, User, Building, Hash, Radio, MessageSquare, Info } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Send, FileText, User, Building, Hash, Radio, MessageSquare, Info, Award, ClipboardList, ArrowRight } from 'lucide-react';
 import { FormatType, Question, SurveyResponse, QuestionAnswer } from '../types';
-import { getQuestionsForFormat, GCFO0192_TITLE, GCFO0131_TITLE } from '../data/initialQuestions';
+import { getQuestionsForFormat, GCFO0131_TITLE } from '../data/initialQuestions';
+import uvmImage from '../assets/images/uvm_accredited_worker_1786655811408.jpg';
+import metrologicalImage from '../assets/images/metrological_warehouse_samples_1786574559696.jpg';
+import { SedapalLogo } from './SedapalLogo';
 
 interface SurveyFormProps {
   format: FormatType;
@@ -19,7 +22,7 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({
   onGoToReports
 }) => {
   const questions = getQuestionsForFormat(format);
-  const title = format === 'GCFO0192' ? GCFO0192_TITLE : GCFO0131_TITLE;
+  const title = GCFO0131_TITLE;
 
   // Metadata form states
   const [clientName, setClientName] = useState('');
@@ -27,6 +30,7 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({
   const [serviceOrder, setServiceOrder] = useState('');
   const [inspectorName, setInspectorName] = useState('');
   const [serviceChannel, setServiceChannel] = useState<'Correo' | 'Teléfono' | 'WhatsApp' | 'Presencial' | 'Portal Web'>('Correo');
+  const [serviceProvidedType, setServiceProvidedType] = useState<string>('Servicios de Evaluación Metrológica de Medidores (evaluación de muestras, aguas subterráneas, control de calidad, etc.)');
   const [generalComments, setGeneralComments] = useState('');
 
   // Scores state: key = question.id, value = score (1-10)
@@ -43,6 +47,18 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({
   }>({});
 
   const [submittedSuccess, setSubmittedSuccess] = useState<SurveyResponse | null>(null);
+
+  const scrollToField = (fieldId: string) => {
+    const el = document.getElementById(fieldId);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Add temporary highlight ring
+      el.classList.add('ring-4', 'ring-red-400', 'ring-offset-2', 'transition-all');
+      setTimeout(() => {
+        el.classList.remove('ring-4', 'ring-red-400', 'ring-offset-2');
+      }, 2200);
+    }
+  };
 
   // Group questions by section
   const sectionsMap = new Map<string, Question[]>();
@@ -101,10 +117,10 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({
     const newErrors: typeof errors = {};
 
     if (!clientName.trim()) {
-      newErrors.clientName = 'Por favor ingrese el nombre del cliente o usuario.';
+      newErrors.clientName = 'Por favor ingrese la Razón Social o Equipo de SEDAPAL.';
     }
     if (!serviceOrder.trim()) {
-      newErrors.serviceOrder = 'Por favor ingrese el número de Expediente u Orden de Servicio.';
+      newErrors.serviceOrder = 'Por favor ingrese el N° de expediente, Remesa o Documento de referencia.';
     }
 
     // Check unanswered questions
@@ -130,13 +146,15 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
-      // Scroll to first error
-      const firstUnanswered = unanswered[0] || missingMotiveIds[0];
-      if (firstUnanswered) {
-        const el = document.getElementById(`q_box_${firstUnanswered}`);
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
+      // Automatically redirect / scroll to the first missing item in logical order
+      if (newErrors.clientName) {
+        scrollToField('field_clientName');
+      } else if (newErrors.serviceOrder) {
+        scrollToField('field_serviceOrder');
+      } else if (unanswered.length > 0) {
+        scrollToField(`q_box_${unanswered[0]}`);
+      } else if (missingMotiveIds.length > 0) {
+        scrollToField(`q_box_${missingMotiveIds[0]}`);
       }
       return;
     }
@@ -168,6 +186,7 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({
       serviceOrderOrExpedient: serviceOrder.trim(),
       inspectorName: inspectorName.trim() || undefined,
       serviceChannel,
+      serviceProvidedType,
       answers: answersList,
       generalComments: generalComments.trim() || undefined,
       averageScore,
@@ -216,14 +235,24 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({
             La encuesta para el formato <span className="font-semibold text-sky-700">{format}</span> se ha guardado en el sistema de gestión de calidad de SEDAPAL.
           </p>
 
+          {/* Agradecimiento Institucional Destacado */}
+          <div className="bg-gradient-to-r from-[#E8F4FC] via-sky-50 to-[#E8F4FC] border border-[#B3D8F5] p-4 sm:p-5 rounded-2xl text-center mb-6 shadow-2xs">
+            <p className="text-sm sm:text-base font-bold text-[#003865] leading-relaxed">
+              “Muchas gracias por haber llenado nuestra encuesta, su opinión es importante para nosotros”.
+            </p>
+            <p className="text-xs text-[#005DAA] font-semibold mt-1">
+              SEDAPAL • Organismo de Inspección (ISO 17020)
+            </p>
+          </div>
+
           {/* Results Summary Box */}
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 mb-8 text-left max-w-md mx-auto space-y-3 text-sm">
             <div className="flex justify-between border-b border-slate-200 pb-2">
-              <span className="text-slate-500 font-medium">Cliente:</span>
+              <span className="text-slate-500 font-medium">Razón Social / Equipo:</span>
               <span className="font-semibold text-slate-800">{submittedSuccess.clientName}</span>
             </div>
             <div className="flex justify-between border-b border-slate-200 pb-2">
-              <span className="text-slate-500 font-medium">Expediente/Orden:</span>
+              <span className="text-slate-500 font-medium">Expediente / Remesa / Doc. Ref.:</span>
               <span className="font-semibold text-slate-800">{submittedSuccess.serviceOrderOrExpedient}</span>
             </div>
             <div className="flex justify-between border-b border-slate-200 pb-2">
@@ -261,62 +290,64 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({
   return (
     <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6">
       
-      {/* Format Selector Bar */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <span className="text-xs font-bold uppercase tracking-wider text-sky-600 bg-sky-50 px-2.5 py-1 rounded-md border border-sky-100">
-            Formato de Encuesta
-          </span>
-          <h1 className="text-lg font-bold text-slate-900 mt-1">
+      {/* Format Header Card with Official SEDAPAL Logo */}
+      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex-1">
+          <div className="flex items-center space-x-2 mb-2">
+            <span className="text-xs font-extrabold uppercase tracking-wider text-[#005DAA] bg-[#E8F4FC] px-2.5 py-1 rounded-md border border-[#B3D8F5]">
+              Formato de Encuesta GCFO0131
+            </span>
+            <span className="text-xs font-bold text-slate-500">• Organismo de Inspección</span>
+          </div>
+          <h1 className="text-lg font-extrabold text-slate-900 leading-snug">
             {title}
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Escala de evaluación del 1 al 10 (10 = Más alto, 1 = Más bajo). Si selecciona un valor menor a 8, deberá justificar el motivo.
+          <p className="text-xs text-slate-500 mt-1">
+            Escala de evaluación del 1 al 10 (10 = Más alto, 1 = Más bajo). Calificaciones &le; 8 requieren justificación del motivo.
           </p>
         </div>
-
-        <div className="flex items-center space-x-2 bg-slate-100 p-1 rounded-xl shrink-0">
-          <button
-            type="button"
-            onClick={() => { setFormat('GCFO0192'); handleReset(); }}
-            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
-              format === 'GCFO0192' ? 'bg-sky-600 text-white shadow' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            GCFO0192
-          </button>
-          <button
-            type="button"
-            onClick={() => { setFormat('GCFO0131'); handleReset(); }}
-            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
-              format === 'GCFO0131' ? 'bg-sky-600 text-white shadow' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            GCFO0131
-          </button>
+        <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 flex items-center justify-center shrink-0 self-start md:self-center">
+          <SedapalLogo variant="light" size="md" />
         </div>
       </div>
 
       {/* Main Form */}
       <form onSubmit={handleSubmit} className="space-y-8">
         
+        {/* Speech / Mensaje Institucional al Cliente al Inicio */}
+        <div className="bg-gradient-to-r from-sky-50 via-blue-50/70 to-slate-50 border border-sky-200/90 rounded-2xl p-5 sm:p-6 shadow-2xs">
+          <div className="flex items-start space-x-3.5 sm:space-x-4">
+            <div className="p-2.5 sm:p-3 bg-[#003865] text-white rounded-xl shadow-xs shrink-0 mt-0.5">
+              <MessageSquare className="w-5 h-5 text-sky-300" />
+            </div>
+            <div className="space-y-1.5">
+              <h3 className="text-sm sm:text-base font-bold text-[#003865] tracking-tight">
+                Estimado cliente:
+              </h3>
+              <p className="text-xs sm:text-[13.5px] leading-relaxed text-slate-700 font-medium">
+                Le agradeceremos responder esta breve encuesta. Su colaboración nos permitirá seguir evaluando nuestro desempeño ante ustedes, así como el nivel de satisfacción por el servicio que les brindamos.
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Section A: Datos del Servicio y Cliente */}
-        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-          <div className="flex items-center space-x-2 border-b border-slate-100 pb-3 mb-5">
+        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-5">
+          <div className="flex items-center space-x-2 border-b border-slate-100 pb-3">
             <User className="w-5 h-5 text-sky-600" />
             <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
               I. Datos Identificatorios de la Inspección / Cliente
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-            {/* Nombre del Cliente */}
-            <div>
-              <label className="block font-semibold text-slate-700 mb-1">
-                Nombre del Cliente / Evaluador <span className="text-red-500">*</span>
+          <div className="space-y-4 text-xs">
+            {/* 1) Razón Social o Equipo de SEDAPAL */}
+            <div id="field_clientName" className="p-1 rounded-xl transition-all">
+              <label className="block font-bold text-slate-800 text-xs mb-1.5">
+                1) Razón Social o Equipo de SEDAPAL <span className="text-red-500">*</span>
               </label>
               <div className="relative">
-                <User className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+                <Building className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
                 <input
                   type="text"
                   value={clientName}
@@ -324,8 +355,8 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({
                     setClientName(e.target.value);
                     if (errors.clientName) setErrors(prev => ({ ...prev, clientName: undefined }));
                   }}
-                  placeholder="Ej: Ing. Juan Carlos Pérez"
-                  className={`w-full pl-9 pr-3 py-2 border rounded-xl focus:outline-none focus:ring-2 ${
+                  placeholder="Ingrese Razón Social o Equipo de SEDAPAL..."
+                  className={`w-full pl-9 pr-3 py-2.5 border rounded-xl text-xs focus:outline-none focus:ring-2 ${
                     errors.clientName
                       ? 'border-red-300 focus:ring-red-200 bg-red-50/30'
                       : 'border-slate-200 focus:ring-sky-200 focus:border-sky-500'
@@ -337,30 +368,13 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({
               )}
             </div>
 
-            {/* Empresa */}
-            <div>
-              <label className="block font-semibold text-slate-700 mb-1">
-                Empresa / Razón Social <span className="text-slate-400 text-[10px] font-normal">(Opcional)</span>
+            {/* 2) Número de expediente / Remesa / Documento de referencia */}
+            <div id="field_serviceOrder" className="p-1 rounded-xl transition-all">
+              <label className="block font-bold text-slate-800 text-xs mb-1.5">
+                2) Número de expediente / Remesa / Documento de referencia <span className="text-red-500">*</span>
               </label>
               <div className="relative">
-                <Building className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
-                <input
-                  type="text"
-                  value={companyName}
-                  onChange={e => setCompanyName(e.target.value)}
-                  placeholder="Ej: Consorcio Agua Lima S.A.C."
-                  className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-500"
-                />
-              </div>
-            </div>
-
-            {/* N° Expediente / Orden de Servicio */}
-            <div>
-              <label className="block font-semibold text-slate-700 mb-1">
-                N° de Expediente / Orden de Servicio <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <Hash className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+                <Hash className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
                 <input
                   type="text"
                   value={serviceOrder}
@@ -368,8 +382,8 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({
                     setServiceOrder(e.target.value);
                     if (errors.serviceOrder) setErrors(prev => ({ ...prev, serviceOrder: undefined }));
                   }}
-                  placeholder="Ej: EXP-2026-0912 / ORD-3341"
-                  className={`w-full pl-9 pr-3 py-2 border rounded-xl focus:outline-none focus:ring-2 ${
+                  placeholder="Ingrese Número de expediente / Remesa / Documento de referencia..."
+                  className={`w-full pl-9 pr-3 py-2.5 border rounded-xl text-xs focus:outline-none focus:ring-2 ${
                     errors.serviceOrder
                       ? 'border-red-300 focus:ring-red-200 bg-red-50/30'
                       : 'border-slate-200 focus:ring-sky-200 focus:border-sky-500'
@@ -380,46 +394,97 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({
                 <p className="text-red-500 text-[11px] mt-1 font-medium">{errors.serviceOrder}</p>
               )}
             </div>
-
-            {/* Nombre del Inspector */}
-            <div>
-              <label className="block font-semibold text-slate-700 mb-1">
-                Inspector / Evaluador a Cargo <span className="text-slate-400 text-[10px] font-normal">(Opcional)</span>
-              </label>
-              <input
-                type="text"
-                value={inspectorName}
-                onChange={e => setInspectorName(e.target.value)}
-                placeholder="Ej: Ing. Fernando Quispe"
-                className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-500"
-              />
-            </div>
-
-            {/* Canal de Atención */}
-            <div className="md:col-span-2">
-              <label className="block font-semibold text-slate-700 mb-1.5">
-                Canal Principal de Comunicación / Servicio
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {(['Correo', 'Teléfono', 'WhatsApp', 'Presencial', 'Portal Web'] as const).map(channel => (
-                  <button
-                    key={channel}
-                    type="button"
-                    onClick={() => setServiceChannel(channel)}
-                    className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition flex items-center space-x-1.5 ${
-                      serviceChannel === channel
-                        ? 'bg-sky-50 border-sky-500 text-sky-700 shadow-xs'
-                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    <Radio className={`w-3.5 h-3.5 ${serviceChannel === channel ? 'text-sky-600' : 'text-slate-400'}`} />
-                    <span>{channel}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
           </div>
         </div>
+
+        {/* Tipo de Servicio Brindado Container */}
+        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
+          <div className="flex items-center space-x-2 border-b border-slate-100 pb-3">
+            <ClipboardList className="w-5 h-5 text-sky-600" />
+            <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
+              II. Tipo de servicio brindado:
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Option 1: Evaluacion Metrologica */}
+                <button
+                  type="button"
+                  onClick={() => setServiceProvidedType('Servicios de Evaluación Metrológica de Medidores (evaluación de muestras, aguas subterráneas, control de calidad, etc.)')}
+                  className={`p-4 rounded-2xl border text-left transition flex flex-col justify-between overflow-hidden relative group ${
+                    serviceProvidedType === 'Servicios de Evaluación Metrológica de Medidores (evaluación de muestras, aguas subterráneas, control de calidad, etc.)'
+                      ? 'bg-sky-50/90 border-sky-500 ring-2 ring-sky-300 text-sky-950 shadow-md'
+                      : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/50 text-slate-700'
+                  }`}
+                >
+                  <div className="flex items-start space-x-3 mb-3">
+                    <div className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 mt-0.5 ${
+                      serviceProvidedType === 'Servicios de Evaluación Metrológica de Medidores (evaluación de muestras, aguas subterráneas, control de calidad, etc.)'
+                        ? 'border-sky-600 bg-sky-600 text-white'
+                        : 'border-slate-300 bg-white'
+                    }`}>
+                      {serviceProvidedType === 'Servicios de Evaluación Metrológica de Medidores (evaluación de muestras, aguas subterráneas, control de calidad, etc.)' && (
+                        <div className="w-2 h-2 bg-white rounded-full" />
+                      )}
+                    </div>
+                    <span className="text-xs font-semibold leading-relaxed">
+                      Servicios de Evaluación Metrológica de Medidores (evaluación de muestras, aguas subterráneas, control de calidad, etc.)
+                    </span>
+                  </div>
+
+                  <div className="relative w-full h-44 rounded-xl overflow-hidden border border-slate-200/80 mt-1 shadow-inner">
+                    <img
+                      src={metrologicalImage}
+                      alt="Servicios de Evaluación Metrológica"
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900/40 via-transparent to-transparent" />
+                    <span className="absolute bottom-2 left-2.5 text-[10px] font-bold text-white bg-slate-900/70 backdrop-blur-md px-2 py-0.5 rounded">
+                      Evaluación de Muestras & Lotes
+                    </span>
+                  </div>
+                </button>
+
+                {/* Option 2: Verificacion Acreditada UVM */}
+                <button
+                  type="button"
+                  onClick={() => setServiceProvidedType('Servicios de verificación acreditados / UVM (remesas de verificación posterior, verificación inicial)')}
+                  className={`p-4 rounded-2xl border text-left transition flex flex-col justify-between overflow-hidden relative group ${
+                    serviceProvidedType === 'Servicios de verificación acreditados / UVM (remesas de verificación posterior, verificación inicial)'
+                      ? 'bg-sky-50/90 border-sky-500 ring-2 ring-sky-300 text-sky-950 shadow-md'
+                      : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/50 text-slate-700'
+                  }`}
+                >
+                  <div className="flex items-start space-x-3 mb-3">
+                    <div className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 mt-0.5 ${
+                      serviceProvidedType === 'Servicios de verificación acreditados / UVM (remesas de verificación posterior, verificación inicial)'
+                        ? 'border-sky-600 bg-sky-600 text-white'
+                        : 'border-slate-300 bg-white'
+                    }`}>
+                      {serviceProvidedType === 'Servicios de verificación acreditados / UVM (remesas de verificación posterior, verificación inicial)' && (
+                        <div className="w-2 h-2 bg-white rounded-full" />
+                      )}
+                    </div>
+                    <span className="text-xs font-semibold leading-relaxed">
+                      Servicios de verificación acreditados / UVM (remesas de verificación posterior, verificación inicial)
+                    </span>
+                  </div>
+
+                  <div className="relative w-full h-44 rounded-xl overflow-hidden border border-slate-200/80 mt-1 shadow-inner">
+                    <img
+                      src={uvmImage}
+                      alt="Servicios de verificación acreditados / UVM"
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900/40 via-transparent to-transparent" />
+                    <span className="absolute bottom-2 left-2.5 text-[10px] font-bold text-white bg-slate-900/70 backdrop-blur-md px-2 py-0.5 rounded">
+                      Inspección en Campo / UVM
+                    </span>
+                  </div>
+                </button>
+              </div>
+            </div>
 
         {/* Section Progress Sticky Bar */}
         <div className="bg-slate-900 text-white rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
@@ -468,153 +533,183 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({
         )}
 
         {/* Section B: Questions */}
-        {Array.from(sectionsMap.entries()).map(([secTitle, secQuestions]) => (
-          <div key={secTitle} className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-6">
-            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide border-b border-slate-100 pb-2 flex items-center justify-between">
-              <span>{secTitle}</span>
-              <span className="text-xs text-slate-400 font-normal lowercase">({secQuestions.length} preguntas)</span>
-            </h3>
+        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-6">
+          <div className="space-y-3 border-b border-slate-100 pb-4">
+            <div className="flex items-center space-x-2">
+              <Award className="w-5 h-5 text-sky-600" />
+              <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wide flex-1">
+                III. Cuestionario
+              </h2>
+              <span className="text-xs text-slate-400 font-medium lowercase">({questions.length} preguntas)</span>
+            </div>
 
-            <div className="space-y-6">
-              {secQuestions.map(q => {
-                const currentScore = scores[q.id];
-                const isLowScore = currentScore !== undefined && currentScore <= 8;
-                const isUnansweredErr = errors.unansweredQuestions?.includes(q.id);
-                const isMissingMotiveErr = errors.missingMotives?.includes(q.id);
-
-                return (
-                  <div
-                    key={q.id}
-                    id={`q_box_${q.id}`}
-                    className={`p-5 rounded-2xl border transition-all ${
-                      isMissingMotiveErr || isUnansweredErr
-                        ? 'border-red-300 bg-red-50/20 shadow-xs'
-                        : isLowScore
-                        ? 'border-amber-200 bg-amber-50/20'
-                        : currentScore !== undefined
-                        ? 'border-slate-200 bg-slate-50/30'
-                        : 'border-slate-100 bg-white'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-4 mb-3">
-                      <div className="flex items-start space-x-3">
-                        <span className="bg-slate-900 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5">
-                          {q.number}
-                        </span>
-                        <p className="text-xs sm:text-sm font-semibold text-slate-900 leading-relaxed">
-                          {q.text}
-                        </p>
-                      </div>
-
-                      {/* Selected Badge */}
-                      {currentScore !== undefined && (
-                        <div className="shrink-0">
-                          {isLowScore ? (
-                            <span className="inline-flex items-center space-x-1 bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full text-[11px] font-bold border border-amber-300">
-                              <AlertCircle className="w-3 h-3 text-amber-600" />
-                              <span>{currentScore}/10 - Requiere motivo</span>
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center space-x-1 bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full text-[11px] font-bold border border-emerald-300">
-                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                              <span>{currentScore}/10 - Satisfactorio</span>
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Scale 1 to 10 Pills */}
-                    <div className="mt-3">
-                      <div className="flex items-center justify-between text-[11px] text-slate-400 font-medium mb-1.5 px-0.5">
-                        <span>1 = Muy Insatisfecho</span>
-                        <span>5 = Regular</span>
-                        <span>10 = Muy Satisfecho</span>
-                      </div>
-
-                      <div className="grid grid-cols-10 gap-1.5 sm:gap-2">
-                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(val => {
-                          const isSelected = currentScore === val;
-                          let btnStyle = 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100';
-
-                          if (isSelected) {
-                            if (val <= 8) {
-                              btnStyle = 'bg-amber-600 text-white border-amber-700 font-extrabold shadow-md scale-105';
-                            } else {
-                              btnStyle = 'bg-emerald-600 text-white border-emerald-700 font-extrabold shadow-md scale-105';
-                            }
-                          } else if (val <= 8) {
-                            btnStyle = 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-amber-50 hover:border-amber-300';
-                          } else {
-                            btnStyle = 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-emerald-50 hover:border-emerald-300';
-                          }
-
-                          return (
-                            <button
-                              key={val}
-                              type="button"
-                              onClick={() => handleScoreSelect(q.id, val)}
-                              className={`py-2 rounded-xl text-xs sm:text-sm font-semibold border transition-all text-center focus:outline-none ${btnStyle}`}
-                            >
-                              {val}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* CONDITIONAL MOTIVE FIELD (<= 8) */}
-                    <AnimatePresence>
-                      {isLowScore && (
-                        <motion.div
-                          initial={{ opacity: 0, height: 0, marginTop: 0 }}
-                          animate={{ opacity: 1, height: 'auto', marginTop: 16 }}
-                          exit={{ opacity: 0, height: 0, marginTop: 0 }}
-                          className="overflow-hidden"
-                        >
-                          <div className={`p-4 rounded-xl border ${
-                            isMissingMotiveErr ? 'bg-red-50 border-red-300' : 'bg-amber-50/80 border-amber-200'
-                          }`}>
-                            <div className="flex items-center space-x-2 text-amber-900 font-bold text-xs mb-1.5">
-                              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                              <span>
-                                Motivo de la calificación ({currentScore}/10) <span className="text-red-600">* Obligatorio</span>
-                              </span>
-                            </div>
-                            <p className="text-[11px] text-amber-800 mb-2">
-                              Al haber asignado una puntuación igual o menor a 8, especifique por favor las razones o aspectos a mejorar para el reporte de calidad:
-                            </p>
-                            <textarea
-                              rows={2}
-                              value={motives[q.id] || ''}
-                              onChange={e => handleMotiveChange(q.id, e.target.value)}
-                              placeholder="Ej: Hubo demoras en la entrega del certificado, falta de respuesta rápida por WhatsApp, etc."
-                              className={`w-full p-2.5 text-xs bg-white border rounded-lg focus:outline-none focus:ring-2 ${
-                                isMissingMotiveErr
-                                  ? 'border-red-400 focus:ring-red-200'
-                                  : 'border-amber-300 focus:ring-amber-200 focus:border-amber-500'
-                              }`}
-                            />
-                            {isMissingMotiveErr && (
-                              <p className="text-red-600 text-[11px] font-semibold mt-1">
-                                Es necesario detallar el motivo para valoraciones menores o iguales a 8.
-                              </p>
-                            )}
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                );
-              })}
+            {/* Sub-instruction and Note */}
+            <div className="space-y-2 pt-1">
+              <p className="text-xs sm:text-[13px] text-slate-700 font-medium leading-relaxed">
+                Utilizando una escala del 1 al 10 (donde 1 es “Muy insatisfecho”, 5 es “Regular” y 10 es “Muy satisfecho”), ¿qué calificación le asignaría a la siguiente pregunta?:
+              </p>
+              <div className="inline-flex items-center space-x-2 px-3 py-1.5 bg-amber-50 border border-amber-200/80 rounded-lg text-amber-900 text-xs font-medium">
+                <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                <span>
+                  <strong>Nota:</strong> Calificaciones menor o igual a 8 requiere justificación del motivo.
+                </span>
+              </div>
             </div>
           </div>
-        ))}
+
+          <div className="space-y-6">
+            {questions.map(q => {
+              const currentScore = scores[q.id];
+              const isLowScore = currentScore !== undefined && currentScore <= 8;
+              const isUnansweredErr = errors.unansweredQuestions?.includes(q.id);
+              const isMissingMotiveErr = errors.missingMotives?.includes(q.id);
+
+              return (
+                <div
+                  key={q.id}
+                  id={`q_box_${q.id}`}
+                  className={`p-5 rounded-2xl border transition-all ${
+                    isMissingMotiveErr || isUnansweredErr
+                      ? 'border-red-300 bg-red-50/20 shadow-xs'
+                      : isLowScore
+                      ? 'border-amber-200 bg-amber-50/20'
+                      : currentScore !== undefined
+                      ? 'border-slate-200 bg-slate-50/30'
+                      : 'border-slate-100 bg-white'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-4 mb-3">
+                    <div className="flex items-start space-x-3">
+                      <span className="bg-slate-900 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5">
+                        {q.number}
+                      </span>
+                      <p className="text-xs sm:text-sm font-semibold text-slate-900 leading-relaxed">
+                        {q.text}
+                      </p>
+                    </div>
+
+                    {/* Selected Badge or Missing Warning */}
+                    {currentScore !== undefined ? (
+                      <div className="shrink-0">
+                        {isLowScore ? (
+                          <span className="inline-flex items-center space-x-1 bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full text-[11px] font-bold border border-amber-300">
+                            <AlertCircle className="w-3 h-3 text-amber-600" />
+                            <span>{currentScore}/10 - Requiere motivo</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center space-x-1 bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full text-[11px] font-bold border border-emerald-300">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                            <span>{currentScore}/10 - Satisfactorio</span>
+                          </span>
+                        )}
+                      </div>
+                    ) : isUnansweredErr ? (
+                      <div className="shrink-0">
+                        <span className="inline-flex items-center space-x-1 bg-red-100 text-red-700 px-2.5 py-0.5 rounded-full text-[11px] font-bold border border-red-300 animate-pulse">
+                          <AlertCircle className="w-3 h-3 text-red-600" />
+                          <span>Falta responder *</span>
+                        </span>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {/* Scale 1 to 10 Pills */}
+                  <div className="mt-3">
+                    <div className="flex items-center justify-between text-[11px] text-slate-400 font-medium mb-1.5 px-0.5">
+                      <span>1 = Muy Insatisfecho</span>
+                      <span>5 = Regular</span>
+                      <span>10 = Muy Satisfecho</span>
+                    </div>
+
+                    <div className="grid grid-cols-10 gap-1.5 sm:gap-2">
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(val => {
+                        const isSelected = currentScore === val;
+                        let btnStyle = 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100';
+
+                        if (isSelected) {
+                          if (val <= 8) {
+                            btnStyle = 'bg-amber-600 text-white border-amber-700 font-extrabold shadow-md scale-105';
+                          } else {
+                            btnStyle = 'bg-emerald-600 text-white border-emerald-700 font-extrabold shadow-md scale-105';
+                          }
+                        } else if (val <= 8) {
+                          btnStyle = 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-amber-50 hover:border-amber-300';
+                        } else {
+                          btnStyle = 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-emerald-50 hover:border-emerald-300';
+                        }
+
+                        return (
+                          <button
+                            key={val}
+                            type="button"
+                            onClick={() => handleScoreSelect(q.id, val)}
+                            className={`py-2 rounded-xl text-xs sm:text-sm font-semibold border transition-all text-center focus:outline-none ${btnStyle}`}
+                          >
+                            {val}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {isUnansweredErr && (
+                      <p className="text-red-600 text-xs font-semibold mt-2.5 flex items-center space-x-1.5 bg-red-50 p-2 rounded-lg border border-red-200">
+                        <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                        <span>Por favor seleccione una calificación del 1 al 10 para continuar.</span>
+                      </p>
+                    )}
+                  </div>
+
+                  {/* CONDITIONAL MOTIVE FIELD (<= 8) */}
+                  <AnimatePresence>
+                    {isLowScore && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                        animate={{ opacity: 1, height: 'auto', marginTop: 16 }}
+                        exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                        className="overflow-hidden"
+                      >
+                        <div className={`p-4 rounded-xl border ${
+                          isMissingMotiveErr ? 'bg-red-50 border-red-300' : 'bg-amber-50/80 border-amber-200'
+                        }`}>
+                          <div className="flex items-center space-x-2 text-amber-900 font-bold text-xs mb-1.5">
+                            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                            <span>
+                              Motivo de la calificación ({currentScore}/10) <span className="text-red-600">* Obligatorio</span>
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-amber-800 mb-2">
+                            Al haber asignado una puntuación igual o menor a 8, especifique por favor las razones o aspectos a mejorar para el reporte de calidad:
+                          </p>
+                          <textarea
+                            rows={2}
+                            value={motives[q.id] || ''}
+                            onChange={e => handleMotiveChange(q.id, e.target.value)}
+                            placeholder="Ej: Hubo demoras en la entrega del certificado, falta de respuesta rápida por WhatsApp, etc."
+                            className={`w-full p-2.5 text-xs bg-white border rounded-lg focus:outline-none focus:ring-2 ${
+                              isMissingMotiveErr
+                                ? 'border-red-400 focus:ring-red-200'
+                                : 'border-amber-300 focus:ring-amber-200 focus:border-amber-500'
+                            }`}
+                          />
+                          {isMissingMotiveErr && (
+                            <p className="text-red-600 text-[11px] font-semibold mt-1">
+                              Es necesario detallar el motivo para valoraciones menores o iguales a 8.
+                            </p>
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              );
+            })}
+          </div>
+        </div>
 
         {/* Section C: Comentarios y sugerencias */}
         <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-3">
           <div className="flex items-center space-x-2 border-b border-slate-100 pb-2 mb-2">
-            <MessageSquare className="w-5 h-5 text-sky-600" />
+            <MessageSquare className="w-5 h-5 text-[#005DAA]" />
             <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide">
               2. Comentarios y sugerencias <span className="text-slate-400 text-[10px] font-normal tracking-normal lowercase">(Opcional)</span>
             </h3>
@@ -629,8 +724,162 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({
             value={generalComments}
             onChange={e => setGeneralComments(e.target.value)}
             placeholder="Escriba aquí los aspectos a mejorar, comentarios o sugerencias adicionales..."
-            className="w-full p-3 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-500 bg-slate-50/50"
+            className="w-full p-3 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-200 focus:border-[#005DAA] bg-slate-50/50"
           />
+        </div>
+
+        {/* Validation Errors Summary Banner */}
+        {Boolean(
+          errors.clientName ||
+          errors.serviceOrder ||
+          (errors.unansweredQuestions && errors.unansweredQuestions.length > 0) ||
+          (errors.missingMotives && errors.missingMotives.length > 0)
+        ) && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-red-50/95 border-2 border-red-300 rounded-2xl p-5 sm:p-6 shadow-md text-red-900 space-y-4"
+          >
+            <div className="flex items-start space-x-3.5">
+              <div className="p-2.5 bg-red-100 text-red-600 rounded-xl shrink-0 mt-0.5">
+                <AlertCircle className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-sm sm:text-base font-bold text-red-900 tracking-tight">
+                  No se pudo enviar la evaluación: Hay campos y/o preguntas obligatorias pendientes
+                </h4>
+                <p className="text-xs text-red-700 font-medium">
+                  Por favor complete los siguientes aspectos señalados en rojo para poder registrar la encuesta:
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2.5 pt-2 border-t border-red-200/90">
+              {/* Section I field errors */}
+              {errors.clientName && (
+                <button
+                  type="button"
+                  onClick={() => scrollToField('field_clientName')}
+                  className="w-full text-left flex items-center justify-between p-3 bg-white rounded-xl border border-red-200 hover:border-red-400 hover:bg-red-50/60 transition group shadow-2xs"
+                >
+                  <span className="text-xs font-semibold text-red-900 flex items-center space-x-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0"></span>
+                    <span>1) Razón Social o Equipo de SEDAPAL (Sección I)</span>
+                  </span>
+                  <span className="text-[11px] font-bold text-red-600 group-hover:text-red-700 flex items-center space-x-1 shrink-0 ml-2">
+                    <span>Ir al campo</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </span>
+                </button>
+              )}
+
+              {errors.serviceOrder && (
+                <button
+                  type="button"
+                  onClick={() => scrollToField('field_serviceOrder')}
+                  className="w-full text-left flex items-center justify-between p-3 bg-white rounded-xl border border-red-200 hover:border-red-400 hover:bg-red-50/60 transition group shadow-2xs"
+                >
+                  <span className="text-xs font-semibold text-red-900 flex items-center space-x-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0"></span>
+                    <span>2) Número de expediente / Remesa / Documento de referencia (Sección I)</span>
+                  </span>
+                  <span className="text-[11px] font-bold text-red-600 group-hover:text-red-700 flex items-center space-x-1 shrink-0 ml-2">
+                    <span>Ir al campo</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </span>
+                </button>
+              )}
+
+              {/* Unanswered questions */}
+              {errors.unansweredQuestions && errors.unansweredQuestions.length > 0 && (
+                <div className="space-y-2 pt-1">
+                  <p className="text-xs font-bold text-red-900 flex items-center space-x-1.5">
+                    <AlertCircle className="w-4 h-4 text-red-600" />
+                    <span>Preguntas del cuestionario sin responder ({errors.unansweredQuestions.length}):</span>
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {errors.unansweredQuestions.map(qid => {
+                      const q = questions.find(item => item.id === qid);
+                      if (!q) return null;
+                      return (
+                        <button
+                          key={qid}
+                          type="button"
+                          onClick={() => scrollToField(`q_box_${qid}`)}
+                          className="text-left p-3 bg-white rounded-xl border border-red-200 hover:border-red-400 hover:bg-red-50/70 transition flex items-start justify-between gap-2 group shadow-2xs"
+                        >
+                          <div className="flex items-start space-x-2.5 min-w-0">
+                            <span className="w-5 h-5 rounded-full bg-red-600 text-white text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                              {q.number}
+                            </span>
+                            <span className="text-xs text-slate-900 font-semibold line-clamp-2 leading-tight">
+                              {q.text}
+                            </span>
+                          </div>
+                          <span className="text-[11px] font-bold text-red-600 group-hover:text-red-700 shrink-0 flex items-center space-x-0.5 mt-0.5">
+                            <span>Ir</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Missing motives for scores <= 8 */}
+              {errors.missingMotives && errors.missingMotives.length > 0 && (
+                <div className="space-y-2 pt-1">
+                  <p className="text-xs font-bold text-amber-900 flex items-center space-x-1.5">
+                    <AlertCircle className="w-4 h-4 text-amber-600" />
+                    <span>Justificaciones obligatorias pendientes (calificación &le; 8):</span>
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {errors.missingMotives.map(qid => {
+                      const q = questions.find(item => item.id === qid);
+                      if (!q) return null;
+                      return (
+                        <button
+                          key={qid}
+                          type="button"
+                          onClick={() => scrollToField(`q_box_${qid}`)}
+                          className="text-left p-3 bg-white rounded-xl border border-amber-300 hover:border-amber-500 hover:bg-amber-50/70 transition flex items-start justify-between gap-2 group shadow-2xs"
+                        >
+                          <div className="flex items-start space-x-2.5 min-w-0">
+                            <span className="w-5 h-5 rounded-full bg-amber-600 text-white text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                              {q.number}
+                            </span>
+                            <div className="min-w-0">
+                              <p className="text-xs text-slate-900 font-semibold">
+                                Pregunta {q.number}: Motivo requerido
+                              </p>
+                              <p className="text-[11px] text-amber-800 font-medium truncate">
+                                Calificación otorgada: {scores[qid]}/10
+                              </p>
+                            </div>
+                          </div>
+                          <span className="text-[11px] font-bold text-amber-700 group-hover:text-amber-800 shrink-0 flex items-center space-x-0.5 mt-0.5">
+                            <span>Completar</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+
+        {/* Mensaje Institucional de Cierre y Agradecimiento al Final */}
+        <div className="bg-gradient-to-r from-sky-50 via-[#E8F4FC] to-blue-50/60 border border-[#B3D8F5] rounded-2xl p-5 sm:p-6 text-center shadow-2xs space-y-1">
+          <p className="text-sm sm:text-base font-bold text-[#003865] leading-snug">
+            “Muchas gracias por haber llenado nuestra encuesta, su opinión es importante para nosotros”.
+          </p>
+          <p className="text-xs text-[#005DAA] font-medium">
+            SEDAPAL • Organismo de Inspección (ISO 17020)
+          </p>
         </div>
 
         {/* Submit Bar */}
@@ -645,7 +894,7 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({
 
           <button
             type="submit"
-            className="bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs px-8 py-3 rounded-xl shadow-md hover:shadow-lg transition flex items-center space-x-2"
+            className="bg-[#005DAA] hover:bg-[#004880] text-white font-extrabold text-xs px-8 py-3 rounded-xl shadow-md hover:shadow-lg transition flex items-center space-x-2"
           >
             <Send className="w-4 h-4" />
             <span>Enviar Evaluación ({format})</span>

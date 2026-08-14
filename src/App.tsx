@@ -6,10 +6,12 @@ import { SurveyHistory } from './components/SurveyHistory';
 import { FormatQuestionsModal } from './components/FormatQuestionsModal';
 import { ShareModal } from './components/ShareModal';
 import { PublicSurveyView } from './components/PublicSurveyView';
+import { SedapalLogo } from './components/SedapalLogo';
 import { FormatType, SurveyResponse } from './types';
 import {
   fetchStoredResponses,
   saveSurveyResponseAsync,
+  updateSurveyResponseAsync,
   deleteSurveyResponseAsync,
   resetSurveyResponsesAsync
 } from './utils/storage';
@@ -17,7 +19,7 @@ import { Award, ShieldCheck } from 'lucide-react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'new_survey' | 'reports' | 'history' | 'questions'>('new_survey');
-  const [selectedFormat, setSelectedFormat] = useState<FormatType>('GCFO0192');
+  const [selectedFormat, setSelectedFormat] = useState<FormatType>('GCFO0131');
   const [selectedHistoryFormatFilter, setSelectedHistoryFormatFilter] = useState<FormatType | 'ALL'>('ALL');
   
   const [responses, setResponses] = useState<SurveyResponse[]>([]);
@@ -44,14 +46,9 @@ export default function App() {
     };
     window.addEventListener('focus', handleFocus);
 
-    // Read URL query parameters for public survey link (e.g. ?mode=survey&format=GCFO0131)
+    // Read URL query parameters for public survey link (e.g. ?mode=survey)
     const params = new URLSearchParams(window.location.search);
     const modeParam = params.get('mode');
-    const formatParam = params.get('format');
-
-    if (formatParam === 'GCFO0131' || formatParam === 'GCFO0192') {
-      setSelectedFormat(formatParam as FormatType);
-    }
 
     if (modeParam === 'survey') {
       setIsRespondentMode(true);
@@ -65,6 +62,11 @@ export default function App() {
 
   const handleSaveSurvey = async (newResponse: SurveyResponse) => {
     const updated = await saveSurveyResponseAsync(newResponse);
+    setResponses(updated);
+  };
+
+  const handleUpdateSurvey = async (updatedResponse: SurveyResponse) => {
+    const updated = await updateSurveyResponseAsync(updatedResponse);
     setResponses(updated);
   };
 
@@ -91,11 +93,6 @@ export default function App() {
         format={selectedFormat}
         setFormat={setSelectedFormat}
         onSaveSurvey={handleSaveSurvey}
-        adminPin={adminPin}
-        onUnlockAdmin={() => {
-          setIsRespondentMode(false);
-          window.history.pushState({}, '', window.location.pathname);
-        }}
       />
     );
   }
@@ -138,6 +135,7 @@ export default function App() {
           <SurveyHistory
             responses={responses}
             onDeleteResponse={handleDeleteResponse}
+            onUpdateResponse={handleUpdateSurvey}
             selectedFormatFilter={selectedHistoryFormatFilter}
             setSelectedFormatFilter={setSelectedHistoryFormatFilter}
           />
@@ -157,20 +155,25 @@ export default function App() {
       />
 
       {/* Corporate Footer */}
-      <footer className="bg-slate-900 text-slate-400 text-xs py-6 border-t border-slate-800 mt-auto">
+      <footer className="bg-[#002c52] text-sky-200/80 text-xs py-6 border-t border-[#00203d] mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center space-x-2">
-            <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-            <span className="font-semibold text-slate-300">
-              SEDAPAL • Organismo de Inspección y Calidad ISO 17020
-            </span>
+          <div className="flex items-center space-x-3">
+            <div className="bg-white px-2 py-0.5 rounded-lg flex items-center">
+              <SedapalLogo variant="light" size="sm" />
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+              <span className="font-semibold text-slate-100">
+                Organismo de Inspección y Calidad • Acreditación ISO 17020
+              </span>
+            </div>
           </div>
 
-          <div className="flex items-center space-x-4 text-[11px] text-slate-400">
-            <span>Sistema de Evaluación GCFO0131 & GCFO0192</span>
+          <div className="flex items-center space-x-4 text-[11px] text-sky-200/90">
+            <span>Sistema de Evaluación Formato GCFO0131</span>
             <span>•</span>
             <span className="flex items-center space-x-1">
-              <ShieldCheck className="w-3.5 h-3.5 text-sky-400" />
+              <ShieldCheck className="w-3.5 h-3.5 text-sky-300" />
               <span>Control Escala 1-10</span>
             </span>
           </div>

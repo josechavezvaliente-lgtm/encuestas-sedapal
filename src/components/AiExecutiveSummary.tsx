@@ -27,6 +27,7 @@ export const AiExecutiveSummary: React.FC<AiExecutiveSummaryProps> = ({ report }
         body: JSON.stringify({
           formatType: report.formatType,
           formatTitle: report.formatTitle,
+          serviceProvidedType: report.selectedServiceType,
           totalSurveys: report.totalSurveys,
           overallAverage: report.overallAverage,
           csatIndex: report.csatIndex,
@@ -49,9 +50,14 @@ export const AiExecutiveSummary: React.FC<AiExecutiveSummaryProps> = ({ report }
         ? report.allMotives.map(m => `• P${m.questionNumber || 'Obs'} (${m.score}/10): "${m.motive}"`).join('\n')
         : '• No se registran motivos de baja calificación para este periodo.';
 
+      const serviceTypeHeader = report.selectedServiceType && report.selectedServiceType !== 'all'
+        ? `\n- **Tipo de Servicio:** ${report.selectedServiceType}`
+        : '';
+
       setSummary(
         `### 📊 Diagnóstico Ejecutivo de Calidad (${report.formatType})\n\n` +
-        `- **Total Evaluaciones:** ${report.totalSurveys}\n` +
+        `- **Total Evaluaciones:** ${report.totalSurveys}` +
+        serviceTypeHeader + `\n` +
         `- **Puntaje Promedio General:** ${report.overallAverage} / 10\n` +
         `- **Índice CSAT (Notas ≥ 8):** ${report.csatIndex}%\n\n` +
         `#### 🔍 Hallazgos y Diagnóstico Principal:\n` +
@@ -60,7 +66,7 @@ export const AiExecutiveSummary: React.FC<AiExecutiveSummaryProps> = ({ report }
           : `Se identifican oportunidades de atención prioritaria. Se han registrado ${report.allMotives?.length || 0} observaciones justificadas para calificaciones menores o iguales a 8.`) +
         `\n\n#### 💬 Observaciones y Motivos Reportados (≤ 8):\n` +
         fallbackMotives +
-        `\n\n#### 📋 Plan de Acción Recomendado (ISO 17020 / ISO 9001):\n` +
+        `\n\n#### 📋 Plan de Acción para Mejora Continua:\n` +
         `1. **Atención y Seguimiento:** Optimizar tiempos de respuesta e información directa al cliente.\n` +
         `2. **Comunicación Directa:** Reforzar el canal corporativo para absolución de dudas previas.\n` +
         `3. **Monitoreo Continuo:** Evaluaciones quincenales a los ítems con observaciones registradas.`
@@ -72,23 +78,23 @@ export const AiExecutiveSummary: React.FC<AiExecutiveSummaryProps> = ({ report }
 
   useEffect(() => {
     fetchAiSummary();
-  }, [report.formatType, report.totalSurveys]);
+  }, [report.formatType, report.totalSurveys, report.selectedServiceType]);
 
   return (
-    <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl p-6 shadow-lg border border-slate-700/80">
-      <div className="flex items-center justify-between border-b border-slate-700 pb-4 mb-4">
+    <div className="bg-[#003865] text-white rounded-2xl p-6 shadow-xl border border-[#00284a]">
+      <div className="flex items-center justify-between border-b border-sky-800/60 pb-4 mb-4">
         <div className="flex items-center space-x-3">
-          <div className="bg-sky-500/20 text-sky-400 p-2 rounded-xl border border-sky-400/30">
-            <Sparkles className="w-5 h-5" />
+          <div className="bg-[#0099DD]/30 text-sky-200 p-2 rounded-xl border border-sky-400/30">
+            <Sparkles className="w-5 h-5 text-sky-300" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-white flex items-center space-x-2">
-              <span>Diagnóstico e Insights Automatizados por IA</span>
-              <span className="bg-emerald-500/20 text-emerald-300 text-[10px] px-2 py-0.5 rounded-full font-medium">
-                Gemini 2.5
+            <h3 className="text-sm font-extrabold text-white flex items-center space-x-2">
+              <span>Diagnóstico e Insights SEDAPAL por IA</span>
+              <span className="bg-emerald-500/20 text-emerald-300 text-[10px] px-2 py-0.5 rounded-full font-bold border border-emerald-400/30">
+                Gestión de Calidad
               </span>
             </h3>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-sky-200/80">
               Análisis ejecutivo cualitativo y cuantitativo para {report.formatType}
             </p>
           </div>
@@ -97,9 +103,9 @@ export const AiExecutiveSummary: React.FC<AiExecutiveSummaryProps> = ({ report }
         <button
           onClick={fetchAiSummary}
           disabled={loading}
-          className="flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-xl border border-slate-600 text-xs font-semibold transition disabled:opacity-50"
+          className="flex items-center space-x-1.5 bg-[#002c52] hover:bg-[#002342] text-slate-100 px-3 py-1.5 rounded-xl border border-sky-500/30 text-xs font-bold transition disabled:opacity-50"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`w-3.5 h-3.5 text-sky-300 ${loading ? 'animate-spin' : ''}`} />
           <span className="hidden sm:inline">Actualizar Diagnóstico</span>
         </button>
       </div>
