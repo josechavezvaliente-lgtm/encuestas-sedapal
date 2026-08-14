@@ -44,6 +44,20 @@ export async function saveQuestionsAsync(format: FormatType, questions: Question
   return questions;
 }
 
+export async function resetQuestionsAsync(format: FormatType): Promise<Question[]> {
+  try {
+    const raw = localStorage.getItem(QUESTIONS_STORAGE_KEY);
+    if (raw) {
+      const map = JSON.parse(raw);
+      delete map[format];
+      localStorage.setItem(QUESTIONS_STORAGE_KEY, JSON.stringify(map));
+    }
+  } catch (e) {
+    console.error('Error resetting questions:', e);
+  }
+  return getStoredQuestions();
+}
+
 // Guardar encuesta mapeando todos los campos completos hacia Supabase
 export async function saveSurvey(survey: SurveyResponse): Promise<boolean> {
   try {
