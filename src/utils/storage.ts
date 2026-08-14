@@ -193,6 +193,18 @@ export async function updateSurveyResponseAsync(survey: SurveyResponse): Promise
   await saveSurveyResponse(survey);
 }
 
+export async function deleteSurveyResponseAsync(id: string): Promise<void> {
+  await deleteStoredSurvey(id);
+}
+
+export async function resetSurveyResponsesAsync(): Promise<void> {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch (e) {
+    console.error(e);
+  }
+}
+
 export async function generateFormatReport(formatType: FormatType, selectedServiceType?: string): Promise<FormatReport> {
   const allSurveys = await getStoredSurveys();
   const surveys = allSurveys.filter(s => {
