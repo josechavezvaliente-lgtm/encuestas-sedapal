@@ -121,6 +121,34 @@ export async function saveSurveyResponseAsync(response: SurveyResponse): Promise
   return updated;
 }
 
+// Actualizar una encuesta existente directamente en Supabase
+export async function updateSurveyResponseAsync(response: SurveyResponse): Promise<SurveyResponse[]> {
+  try {
+    const payload = {
+      formato: response.formatType,
+      nombre_cliente: response.clientName,
+      puntaje: response.score || 10,
+      respuestas: response.answers
+    };
+
+    const { error } = await supabase
+      .from('evaluaciones')
+      .update(payload)
+      .eq('id', response.id);
+
+    if (error) {
+      console.error('Error updating survey in Supabase:', error);
+    }
+  } catch (err) {
+    console.error('Error posting update to Supabase:', err);
+  }
+
+  const current = getStoredResponses();
+  const updated = current.map(r => (r.id === response.id ? response : r));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  return updated;
+}
+
 export function saveSurveyResponse(response: SurveyResponse): SurveyResponse[] {
   const current = getStoredResponses();
   const updated = [response, ...current];
