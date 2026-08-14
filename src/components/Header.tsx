@@ -1,5 +1,5 @@
 import React from 'react';
-import { BarChart3, History, HelpCircle, RefreshCw, PlusCircle, CheckCircle2, Share2 } from 'lucide-react';
+import { BarChart3, History, HelpCircle, RefreshCw, PlusCircle, Share2 } from 'lucide-react';
 import { FormatType } from '../types';
 import { SedapalLogo } from './SedapalLogo';
 
@@ -63,15 +63,6 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <Share2 className="w-3.5 h-3.5" />
               <span>Compartir Encuesta</span>
-            </button>
-
-            <button
-              onClick={onLoadSampleData}
-              title="Cargar encuestas simuladas para probar los reportes"
-              className="flex items-center space-x-1.5 bg-[#002c52] hover:bg-[#002342] text-slate-100 px-3 py-1.5 rounded-lg border border-sky-500/30 transition"
-            >
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="hidden sm:inline font-medium">Cargar Demo</span>
             </button>
 
             <button
@@ -141,4 +132,3 @@ export const Header: React.FC<HeaderProps> = ({
     </header>
   );
 };
-
