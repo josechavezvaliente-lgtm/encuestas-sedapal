@@ -75,8 +75,6 @@ export async function fetchStoredResponses(): Promise<SurveyResponse[]> {
         answers: item.respuestas || [], 
         generalComments: item.comentarios_generales, 
         isGeneralSatisfied: item.conformidad_general ?? true,
-        lowScoreCount: item.cantidad_observaciones_bajas || 0,
-        averageScore: item.puntaje_promedio || 10,
         createdAt: item.created_at
       }));
       localStorage.setItem(STORAGE_KEY, JSON.stringify(formatted));
@@ -98,12 +96,7 @@ export async function saveSurveyResponseAsync(response: SurveyResponse): Promise
   });
   const avgScore = answers.length > 0 ? Number((totalScore / answers.length).toFixed(1)) : 10;
 
-  // Recopilamos y unimos los motivos de todas las preguntas con nota <= 8
-  const motivesText = answers
-    .filter((a: any) => (a.score || 0) <= 8 && a.motive && a.motive.trim())
-    .map((a: any) => `P${a.questionNumber || a.questionId}: ${a.motive.trim()}`)
-    .join(' | ');
-
+  // Insertamos incluyendo todas las columnas válidas de Supabase (con respuestas incluidas)
   const { error } = await supabase.from('encuestas').insert([
     {
       id: response.id,
@@ -117,7 +110,6 @@ export async function saveSurveyResponseAsync(response: SurveyResponse): Promise
       conformidad_general: response.isGeneralSatisfied,
       puntaje_promedio: avgScore,
       cantidad_observaciones_bajas: lowScoresCount,
-      motivos_bajos: motivesText || 'Sin observaciones',
       created_at: response.createdAt
     }
   ]);
@@ -144,11 +136,6 @@ export function saveSurveyResponse(response: SurveyResponse): SurveyResponse[] {
   });
   const avgScore = answers.length > 0 ? Number((totalScore / answers.length).toFixed(1)) : 10;
 
-  const motivesText = answers
-    .filter((a: any) => (a.score || 0) <= 8 && a.motive && a.motive.trim())
-    .map((a: any) => `P${a.questionNumber || a.questionId}: ${a.motive.trim()}`)
-    .join(' | ');
-
   supabase.from('encuestas').insert([
     {
       id: response.id,
@@ -162,7 +149,6 @@ export function saveSurveyResponse(response: SurveyResponse): SurveyResponse[] {
       conformidad_general: response.isGeneralSatisfied,
       puntaje_promedio: avgScore,
       cantidad_observaciones_bajas: lowScoresCount,
-      motivos_bajos: motivesText || 'Sin observaciones',
       created_at: response.createdAt
     }
   ]).then(({ error }) => {
@@ -188,11 +174,6 @@ export async function updateSurveyResponseAsync(updatedResponse: SurveyResponse)
   });
   const avgScore = answers.length > 0 ? Number((totalScore / answers.length).toFixed(1)) : 10;
 
-  const motivesText = answers
-    .filter((a: any) => (a.score || 0) <= 8 && a.motive && a.motive.trim())
-    .map((a: any) => `P${a.questionNumber || a.questionId}: ${a.motive.trim()}`)
-    .join(' | ');
-
   const { error } = await supabase
     .from('encuestas')
     .update({
@@ -204,8 +185,7 @@ export async function updateSurveyResponseAsync(updatedResponse: SurveyResponse)
       comentarios_generales: updatedResponse.generalComments, 
       conformidad_general: updatedResponse.isGeneralSatisfied,
       puntaje_promedio: avgScore,
-      cantidad_observaciones_bajas: lowScoresCount,
-      motivos_bajos: motivesText || 'Sin observaciones'
+      cantidad_observaciones_bajas: lowScoresCount
     })
     .eq('id', updatedResponse.id);
 
