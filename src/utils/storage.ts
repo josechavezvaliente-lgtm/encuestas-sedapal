@@ -60,58 +60,66 @@ export async function fetchStoredResponses(): Promise<SurveyResponse[]> {
 
     if (error) {
       console.error('Error fetching surveys from Supabase:', error);
+      alert("¡Atención! No se pudo sincronizar con la base de datos de Supabase. Revisa tu conexión o las políticas de seguridad.");
       return getStoredResponses();
     }
 
     if (data && data.length > 0) {
-      // Mapea los registros de Supabase al formato que usa tu aplicación
       const formatted: SurveyResponse[] = data.map((item: any) => ({
         id: item.id,
         formatType: item.formato_tipo || 'GCFO0131',
-        serviceProvidedType: item.servicio_tipo,
+        serviceProvidedType: item.tipo_servicio,
         clientName: item.razon_social,
         companyName: item.empresa,
-        serviceOrderOrExpedient: item.expediente,
-        answers: item.respuestas || [],
-        generalComments: item.comentarios,
-        isGeneralSatisfied: item.conformidad ?? true,
+        serviceOrderOrExpedient: item.numero_expediente,
+        answers: item.respuestas || [], 
+        generalComments: item.comentarios_generales, 
+        isGeneralSatisfied: item.conformidad_general ?? true,
         createdAt: item.created_at
       }));
       localStorage.setItem(STORAGE_KEY, JSON.stringify(formatted));
       return formatted;
     }
   } catch (error) {
-    console.warn('Network error fetching from Supabase, using local fallback:', error);
+    console.warn('Network error fetching from Supabase:', error);
   }
   return getStoredResponses();
 }
 
 export async function saveSurveyResponseAsync(response: SurveyResponse): Promise<SurveyResponse[]> {
-  try {
-    // Guarda directamente en Supabase
-    const { error } = await supabase.from('encuestas').insert([
-      {
-        id: response.id,
-        formato_tipo: response.formatType,
-        servicio_tipo: response.serviceProvidedType,
-        razon_social: response.clientName,
-        empresa: response.companyName,
-        expediente: response.serviceOrderOrExpedient,
-        respuestas: response.answers,
-        comentarios: response.generalComments,
-        conformidad: response.isGeneralSatisfied,
-        created_at: response.createdAt
-      }
-    ]);
+  const answers = response.answers || [];
+  let totalScore = 0;
+  let lowScoresCount = 0;
+  answers.forEach((a: any) => {
+    totalScore += (a.score || 0);
+    if ((a.score || 0) <= 8) lowScoresCount++;
+  });
+  const avgScore = answers.length > 0 ? Number((totalScore / answers.length).toFixed(1)) : 10;
 
-    if (error) {
-      console.error('Error inserting survey into Supabase:', error);
+  // Insertamos incluyendo todas las columnas válidas de Supabase (con respuestas incluidas)
+  const { error } = await supabase.from('encuestas').insert([
+    {
+      id: response.id,
+      formato_tipo: response.formatType,
+      tipo_servicio: response.serviceProvidedType,
+      razon_social: response.clientName,
+      empresa: response.companyName,
+      numero_expediente: response.serviceOrderOrExpedient,
+      respuestas: response.answers,
+      comentarios_generales: response.generalComments, 
+      conformidad_general: response.isGeneralSatisfied,
+      puntaje_promedio: avgScore,
+      cantidad_observaciones_bajas: lowScoresCount,
+      created_at: response.createdAt
     }
-  } catch (err) {
-    console.error('Exception posting survey to Supabase:', err);
+  ]);
+
+  if (error) {
+    console.error('Error inserting survey into Supabase:', error);
+    alert("¡Error crítico! No se pudo guardar la encuesta en el Servidor Supabase. Verifique su conexión o permisos.");
+    throw new Error(error.message);
   }
 
-  // Actualiza de manera local y retorna la lista actualizada
   const current = getStoredResponses();
   const updated = [response, ...current];
   localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
@@ -119,47 +127,72 @@ export async function saveSurveyResponseAsync(response: SurveyResponse): Promise
 }
 
 export function saveSurveyResponse(response: SurveyResponse): SurveyResponse[] {
-  const current = getStoredResponses();
-  const updated = [response, ...current];
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-  
-  // Ejecuta el guardado en segundo plano hacia Supabase
+  const answers = response.answers || [];
+  let totalScore = 0;
+  let lowScoresCount = 0;
+  answers.forEach((a: any) => {
+    totalScore += (a.score || 0);
+    if ((a.score || 0) <= 8) lowScoresCount++;
+  });
+  const avgScore = answers.length > 0 ? Number((totalScore / answers.length).toFixed(1)) : 10;
+
   supabase.from('encuestas').insert([
     {
       id: response.id,
       formato_tipo: response.formatType,
-      servicio_tipo: response.serviceProvidedType,
+      tipo_servicio: response.serviceProvidedType,
       razon_social: response.clientName,
       empresa: response.companyName,
-      expediente: response.serviceOrderOrExpedient,
+      numero_expediente: response.serviceOrderOrExpedient,
       respuestas: response.answers,
-      comentarios: response.generalComments,
-      conformidad: response.isGeneralSatisfied,
+      comentarios_generales: response.generalComments, 
+      conformidad_general: response.isGeneralSatisfied,
+      puntaje_promedio: avgScore,
+      cantidad_observaciones_bajas: lowScoresCount,
       created_at: response.createdAt
     }
   ]).then(({ error }) => {
-    if (error) console.error('Error background sync to Supabase:', error);
+    if (error) {
+      console.error('Error enviando a Supabase:', error);
+      alert("¡Alerta! La encuesta NO se guardó en el servidor Supabase. Hubo un error de conexión o rechazo de la base de datos.");
+    }
   });
 
+  const current = getStoredResponses();
+  const updated = [response, ...current];
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   return updated;
 }
 
 export async function updateSurveyResponseAsync(updatedResponse: SurveyResponse): Promise<SurveyResponse[]> {
-  try {
-    await supabase
-      .from('encuestas')
-      .update({
-        servicio_tipo: updatedResponse.serviceProvidedType,
-        razon_social: updatedResponse.clientName,
-        empresa: updatedResponse.companyName,
-        expediente: updatedResponse.serviceOrderOrExpedient,
-        respuestas: updatedResponse.answers,
-        comentarios: updatedResponse.generalComments,
-        conformidad: updatedResponse.isGeneralSatisfied
-      })
-      .eq('id', updatedResponse.id);
-  } catch (err) {
-    console.error('Error updating survey on Supabase:', err);
+  const answers = updatedResponse.answers || [];
+  let totalScore = 0;
+  let lowScoresCount = 0;
+  answers.forEach((a: any) => {
+    totalScore += (a.score || 0);
+    if ((a.score || 0) <= 8) lowScoresCount++;
+  });
+  const avgScore = answers.length > 0 ? Number((totalScore / answers.length).toFixed(1)) : 10;
+
+  const { error } = await supabase
+    .from('encuestas')
+    .update({
+      tipo_servicio: updatedResponse.serviceProvidedType,
+      razon_social: updatedResponse.clientName,
+      empresa: updatedResponse.companyName,
+      numero_expediente: updatedResponse.serviceOrderOrExpedient,
+      respuestas: updatedResponse.answers,
+      comentarios_generales: updatedResponse.generalComments, 
+      conformidad_general: updatedResponse.isGeneralSatisfied,
+      puntaje_promedio: avgScore,
+      cantidad_observaciones_bajas: lowScoresCount
+    })
+    .eq('id', updatedResponse.id);
+
+  if (error) {
+    console.error('Error updating survey on Supabase:', error);
+    alert("No se pudo actualizar el registro en el servidor.");
+    throw new Error(error.message);
   }
 
   const current = getStoredResponses();
@@ -176,10 +209,12 @@ export async function updateSurveyResponseAsync(updatedResponse: SurveyResponse)
 }
 
 export async function deleteSurveyResponseAsync(id: string): Promise<SurveyResponse[]> {
-  try {
-    await supabase.from('encuestas').delete().eq('id', id);
-  } catch (err) {
-    console.error('Error deleting survey from Supabase:', err);
+  const { error } = await supabase.from('encuestas').delete().eq('id', id);
+
+  if (error) {
+    console.error('Error deleting survey from Supabase:', error);
+    alert("No se pudo eliminar el registro del servidor.");
+    throw new Error(error.message);
   }
 
   const current = getStoredResponses().filter(s => s.id !== id);
