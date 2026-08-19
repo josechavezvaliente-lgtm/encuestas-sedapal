@@ -80,7 +80,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
               </span>
             </div>
             <p className="text-[11px] text-sky-800 font-medium leading-tight mt-0.5">
-              Organismo de Inspección de Medidores de Agua Potable (SEDAPAL)
+              Organismo de Inspección del EGCM (SEDAPAL)
             </p>
           </div>
         </div>

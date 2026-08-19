@@ -30,12 +30,9 @@ export const PublicSurveyView: React.FC<PublicSurveyViewProps> = ({
                 <span className="font-extrabold text-sm text-white tracking-tight uppercase">
                   Encuesta de Satisfacción
                 </span>
-                <span className="bg-[#0099DD]/30 text-sky-200 text-[10px] px-2 py-0.5 rounded-full font-bold border border-sky-400/40">
-                  ISO 17020
-                </span>
               </div>
               <p className="text-[11px] text-sky-200/90 font-medium">
-                Organismo de Inspección y Calidad
+                Organismo de Inspección del EGCM
               </p>
             </div>
           </div>

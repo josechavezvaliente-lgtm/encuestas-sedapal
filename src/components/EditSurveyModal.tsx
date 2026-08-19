@@ -497,7 +497,7 @@ export const EditSurveyModal: React.FC<EditSurveyModalProps> = ({
                           <span>Justificación del motivo de la calificación ({currentScore}/10) <strong className="text-red-600">*</strong></span>
                         </label>
                         <p className="text-[11px] text-amber-800 mb-2">
-                          Por norma de calidad ISO 17020, las notas &le; 8 requieren especificar la causa.
+                          Las calificaciones &le; 8 requieren especificar la justificación o causa.
                         </p>
                         <textarea
                           rows={2}

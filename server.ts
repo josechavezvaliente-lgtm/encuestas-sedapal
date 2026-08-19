@@ -1,16 +1,227 @@
+import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
+import { createClient } from '@supabase/supabase-js';
 import { SAMPLE_SURVEY_RESPONSES, GCFO0131_QUESTIONS } from './src/data/initialQuestions';
 
-// Central server-side store for all submitted surveys across all clients/users
-let surveysStore = [...SAMPLE_SURVEY_RESPONSES];
+// --- Supabase client (server-side only, usa la service_role key) ---
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-// Central server-side store for customized questions per format
-let questionsStore = {
-  GCFO0131: [...GCFO0131_QUESTIONS]
-};
+if (!supabaseUrl || !supabaseKey) {
+  console.warn('⚠️  SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY no configurados en .env. La app funcionará solo con datos en memoria (no persistentes).');
+}
+
+const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
+
+// --- Fallback en memoria (por si Supabase no está configurado) ---
+let memorySurveys = [...SAMPLE_SURVEY_RESPONSES];
+let memoryQuestions: Record<string, any> = { GCFO0131: [...GCFO0131_QUESTIONS] };
+
+// =========================================================
+// Mapeo: SurveyResponse (app) <-> filas de Supabase
+// =========================================================
+
+function surveyToRow(s: any) {
+  return {
+    id: s.id,
+    formato_tipo: s.formatType,
+    created_at: s.createdAt,
+    razon_social: s.clientName,
+    empresa: s.companyName ?? null,
+    ruc: s.ruc ?? null,
+    numero_expediente: s.serviceOrderOrExpedient,
+    nombre_inspector: s.inspectorName ?? null,
+    canal_atencion: s.serviceChannel,
+    tipo_servicio: s.serviceProvidedType ?? null,
+    motivo_contacto: s.contactReason ?? null,
+    conformidad_general: s.isGeneralSatisfied ?? null,
+    puntaje_promedio: s.averageScore,
+    cantidad_observaciones_bajas: s.lowScoreCount,
+    comentarios_generales: s.generalComments ?? null,
+  };
+}
+
+function answersToRows(surveyId: string, answers: any[]) {
+  return answers.map((a: any) => ({
+    encuesta_id: surveyId,
+    pregunta_id: a.questionId,
+    numero_pregunta: a.questionNumber,
+    seccion_id: a.sectionId,
+    calificacion: a.score,
+    motivo: a.motive ?? null,
+  }));
+}
+
+function rowToSurvey(row: any, answerRows: any[]): any {
+  return {
+    id: row.id,
+    formatType: row.formato_tipo,
+    createdAt: row.created_at,
+    clientName: row.razon_social,
+    companyName: row.empresa ?? undefined,
+    ruc: row.ruc ?? undefined,
+    serviceOrderOrExpedient: row.numero_expediente,
+    inspectorName: row.nombre_inspector ?? undefined,
+    serviceChannel: row.canal_atencion,
+    serviceProvidedType: row.tipo_servicio ?? undefined,
+    contactReason: row.motivo_contacto ?? undefined,
+    isGeneralSatisfied: row.conformidad_general ?? undefined,
+    generalComments: row.comentarios_generales ?? undefined,
+    averageScore: Number(row.puntaje_promedio),
+    lowScoreCount: row.cantidad_observaciones_bajas,
+    answers: answerRows
+      .filter((a: any) => a.encuesta_id === row.id)
+      .map((a: any) => ({
+        questionId: a.pregunta_id,
+        questionNumber: a.numero_pregunta,
+        sectionId: a.seccion_id,
+        score: a.calificacion,
+        motive: a.motivo ?? undefined,
+      })),
+  };
+}
+
+// =========================================================
+// Acceso a datos: encuestas
+// =========================================================
+
+async function seedIfEmpty() {
+  if (!supabase) return;
+
+  const { count, error } = await supabase
+    .from('encuestas')
+    .select('*', { count: 'exact', head: true });
+
+  if (!error && count === 0) {
+    for (const s of SAMPLE_SURVEY_RESPONSES as any[]) {
+      await upsertSurvey(s);
+    }
+    console.log(`Seed inicial: ${SAMPLE_SURVEY_RESPONSES.length} encuestas de ejemplo insertadas en Supabase.`);
+  }
+
+  const { count: qCount, error: qErr } = await supabase
+    .from('preguntas_formato')
+    .select('*', { count: 'exact', head: true });
+
+  if (!qErr && qCount === 0) {
+    await supabase.from('preguntas_formato').insert({ formato: 'GCFO0131', data: GCFO0131_QUESTIONS });
+    console.log('Seed inicial: preguntas GCFO0131 insertadas en Supabase.');
+  }
+}
+
+async function getAllSurveys(): Promise<any[]> {
+  if (!supabase) return [...memorySurveys];
+
+  const { data: encuestas, error: e1 } = await supabase
+    .from('encuestas')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (e1 || !encuestas) {
+    console.error('Error leyendo encuestas de Supabase:', e1);
+    return [];
+  }
+
+  const { data: respuestas, error: e2 } = await supabase
+    .from('respuestas_preguntas')
+    .select('*');
+
+  if (e2) {
+    console.error('Error leyendo respuestas_preguntas de Supabase:', e2);
+    return encuestas.map((row: any) => rowToSurvey(row, []));
+  }
+
+  return encuestas.map((row: any) => rowToSurvey(row, respuestas || []));
+}
+
+async function upsertSurvey(survey: any) {
+  if (!supabase) {
+    const idx = memorySurveys.findIndex((s: any) => s.id === survey.id);
+    if (idx >= 0) memorySurveys[idx] = survey;
+    else memorySurveys = [survey, ...memorySurveys];
+    return;
+  }
+
+  const { error: e1 } = await supabase.from('encuestas').upsert(surveyToRow(survey));
+  if (e1) {
+    console.error('Error guardando encuesta en Supabase:', e1);
+    return;
+  }
+
+  // Reemplaza las respuestas existentes de esta encuesta (borra e inserta de nuevo)
+  await supabase.from('respuestas_preguntas').delete().eq('encuesta_id', survey.id);
+  if (survey.answers && survey.answers.length > 0) {
+    const { error: e2 } = await supabase
+      .from('respuestas_preguntas')
+      .insert(answersToRows(survey.id, survey.answers));
+    if (e2) console.error('Error guardando respuestas en Supabase:', e2);
+  }
+}
+
+async function deleteSurveyById(id: string) {
+  if (!supabase) {
+    memorySurveys = memorySurveys.filter((s: any) => s.id !== id);
+    return;
+  }
+  // ON DELETE CASCADE se encarga de borrar las respuestas asociadas
+  const { error } = await supabase.from('encuestas').delete().eq('id', id);
+  if (error) console.error('Error borrando encuesta en Supabase:', error);
+}
+
+async function resetSurveys() {
+  if (!supabase) {
+    memorySurveys = [...SAMPLE_SURVEY_RESPONSES];
+    return;
+  }
+  await supabase.from('encuestas').delete().neq('id', '');
+  for (const s of SAMPLE_SURVEY_RESPONSES as any[]) {
+    await upsertSurvey(s);
+  }
+}
+
+// =========================================================
+// Acceso a datos: preguntas por formato
+// =========================================================
+
+async function getAllQuestions(): Promise<Record<string, any>> {
+  if (!supabase) return { ...memoryQuestions };
+
+  const { data, error } = await supabase.from('preguntas_formato').select('formato, data');
+  if (error || !data || data.length === 0) {
+    return { GCFO0131: [...GCFO0131_QUESTIONS] };
+  }
+  const result: Record<string, any> = {};
+  for (const row of data) result[row.formato] = row.data;
+  return result;
+}
+
+async function upsertQuestions(format: string, questions: any) {
+  if (!supabase) {
+    memoryQuestions[format] = questions;
+    return;
+  }
+  const { error } = await supabase
+    .from('preguntas_formato')
+    .upsert({ formato: format, data: questions, updated_at: new Date().toISOString() });
+  if (error) console.error('Error guardando preguntas en Supabase:', error);
+}
+
+async function resetQuestions() {
+  if (!supabase) {
+    memoryQuestions = { GCFO0131: [...GCFO0131_QUESTIONS] };
+    return;
+  }
+  await supabase
+    .from('preguntas_formato')
+    .upsert({ formato: 'GCFO0131', data: GCFO0131_QUESTIONS, updated_at: new Date().toISOString() });
+}
+
+// =========================================================
+// Servidor
+// =========================================================
 
 async function startServer() {
   const app = express();
@@ -18,61 +229,50 @@ async function startServer() {
 
   app.use(express.json());
 
-  // Health check
+  await seedIfEmpty();
+
   app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    res.json({ status: 'ok', timestamp: new Date().toISOString(), supabase: !!supabase });
   });
 
-  // Central Survey API Endpoints
-  app.get('/api/surveys', (req, res) => {
-    res.json(surveysStore);
+  app.get('/api/surveys', async (req, res) => {
+    res.json(await getAllSurveys());
   });
 
-  app.post('/api/surveys', (req, res) => {
+  app.post('/api/surveys', async (req, res) => {
     const newSurvey = req.body;
     if (!newSurvey || !newSurvey.id) {
       return res.status(400).json({ error: 'Encuesta no válida' });
     }
-
-    const index = surveysStore.findIndex(s => s.id === newSurvey.id);
-    if (index >= 0) {
-      surveysStore[index] = newSurvey;
-    } else {
-      surveysStore = [newSurvey, ...surveysStore];
-    }
-
-    res.json(surveysStore);
+    await upsertSurvey(newSurvey);
+    res.json(await getAllSurveys());
   });
 
-  app.delete('/api/surveys/:id', (req, res) => {
-    const { id } = req.params;
-    surveysStore = surveysStore.filter(s => s.id !== id);
-    res.json(surveysStore);
+  app.delete('/api/surveys/:id', async (req, res) => {
+    await deleteSurveyById(req.params.id);
+    res.json(await getAllSurveys());
   });
 
-  app.post('/api/surveys/reset', (req, res) => {
-    surveysStore = [...SAMPLE_SURVEY_RESPONSES];
-    res.json(surveysStore);
+  app.post('/api/surveys/reset', async (req, res) => {
+    await resetSurveys();
+    res.json(await getAllSurveys());
   });
 
-  // Questions API Endpoints
-  app.get('/api/questions', (req, res) => {
-    res.json(questionsStore);
+  app.get('/api/questions', async (req, res) => {
+    res.json(await getAllQuestions());
   });
 
-  app.post('/api/questions', (req, res) => {
+  app.post('/api/questions', async (req, res) => {
     const { format, questions } = req.body;
     if (format && format === 'GCFO0131' && Array.isArray(questions)) {
-      questionsStore['GCFO0131'] = questions;
+      await upsertQuestions(format, questions);
     }
-    res.json(questionsStore);
+    res.json(await getAllQuestions());
   });
 
-  app.post('/api/questions/reset', (req, res) => {
-    questionsStore = {
-      GCFO0131: [...GCFO0131_QUESTIONS]
-    };
-    res.json(questionsStore);
+  app.post('/api/questions/reset', async (req, res) => {
+    await resetQuestions();
+    res.json(await getAllQuestions());
   });
 
   // API endpoint: AI Analysis of Survey Reports
@@ -80,7 +280,7 @@ async function startServer() {
     const { formatType, formatTitle, serviceProvidedType, totalSurveys, overallAverage, csatIndex, sectionMetrics, motives } = req.body;
 
     const generateLocalDiagnostic = () => {
-      const fallbackMotivesSummary = motives && motives.length > 0 
+      const fallbackMotivesSummary = motives && motives.length > 0
         ? motives.map((m: any) => `• P${m.questionNumber || 'Obs'} (${m.score}/10): "${m.motive}"`).join('\n')
         : '• No se registran observaciones ni motivos de baja calificación para este periodo.';
 
@@ -109,9 +309,16 @@ ${fallbackMotivesSummary}
 
       if (apiKey && apiKey !== 'MY_GEMINI_API_KEY') {
         try {
-          const ai = new GoogleGenAI({ apiKey });
+          const ai = new GoogleGenAI({
+            apiKey,
+            httpOptions: {
+              headers: {
+                'User-Agent': 'aistudio-build',
+              }
+            }
+          });
           const prompt = `
-Eres un Auditor Senior de Calidad y Experiencia del Cliente para el Organismo de Inspección de SEDAPAL.
+Eres un Auditor Senior de Calidad y Experiencia del Cliente para el Organismo de Inspección del EGCM de SEDAPAL.
 Analiza el siguiente reporte de encuestas de satisfacción correspondiente al ${formatTitle} (${formatType}).
 
 DATOS DEL REPORTE:
@@ -136,13 +343,13 @@ Utiliza un tono corporativo, claro y orientado a la mejora continua instituciona
           let response;
           try {
             response = await ai.models.generateContent({
-              model: 'gemini-2.5-flash',
+              model: 'gemini-3.7-flash',
               contents: prompt,
             });
           } catch (mErr) {
-            console.warn('gemini-2.5-flash failed, attempting fallback to gemini-2.0-flash:', mErr);
+            console.warn('gemini-3.7-flash failed, attempting fallback to gemini-3.6-flash:', mErr);
             response = await ai.models.generateContent({
-              model: 'gemini-2.0-flash',
+              model: 'gemini-3.6-flash',
               contents: prompt,
             });
           }
@@ -155,7 +362,6 @@ Utiliza un tono corporativo, claro y orientado a la mejora continua instituciona
         }
       }
 
-      // Return structured local diagnostic if key is absent or Gemini call failed
       return res.json({ summary: generateLocalDiagnostic() });
     } catch (error: any) {
       console.error('Error generating AI analysis:', error);
@@ -163,7 +369,6 @@ Utiliza un tono corporativo, claro y orientado a la mejora continua instituciona
     }
   });
 
-  // Vite middleware in development or static serve in production
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
       server: { middlewareMode: true },

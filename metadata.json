@@ -1,6 +1,6 @@
 {
   "name": "SEDAPAL - Sistema de Evaluación de Encuestas (GCFO0131)",
-  "description": "Plataforma de SEDAPAL para evaluar la satisfacción de clientes en inspecciones de calidad ISO 17020 (formato GCFO0131) con escala de 1 a 10, justificación condicional de motivos y reportes ejecutivos automatizados en PDF.",
+  "description": "Plataforma de SEDAPAL para evaluar la satisfacción de clientes en inspecciones de calidad (formato GCFO0131) con escala de 1 a 10, justificación condicional de motivos y reportes ejecutivos automatizados en PDF.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

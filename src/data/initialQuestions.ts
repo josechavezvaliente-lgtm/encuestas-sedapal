@@ -1,6 +1,6 @@
 import { Question, FormatType, SurveyResponse } from '../types';
 
-export const GCFO0131_TITLE = "Formato GCFO0131: Encuesta de Satisfacción respecto al Organismo de Inspección de Medidores de Agua Potable";
+export const GCFO0131_TITLE = "Formato GCFO0131: Encuesta de Satisfacción respecto al Organismo de Inspección del EGCM";
 
 export const GCFO0131_QUESTIONS: Question[] = [
   {
@@ -8,14 +8,14 @@ export const GCFO0131_QUESTIONS: Question[] = [
     number: 1,
     sectionId: 'sec_131',
     sectionTitle: 'Evaluación del Servicio',
-    text: '¿Qué tan satisfecho(a) se encuentra con la información proporcionada por el Organismo de Inspección antes y durante la prestación del servicio?'
+    text: '¿Qué tan satisfecho(a) se encuentra con la información proporcionada por el Organismo de Inspección del EGCM antes y durante la prestación del servicio?'
   },
   {
     id: 'g131_q2',
     number: 2,
     sectionId: 'sec_131',
     sectionTitle: 'Evaluación del Servicio',
-    text: '¿Qué tan satisfecho(a) se encuentra con la disposición y atención brindada por el personal del Organismo de Inspección a través de los diferentes canales de comunicación (correo electrónico, teléfono o WhatsApp)?'
+    text: '¿Qué tan satisfecho(a) se encuentra con la disposición y atención brindada por el personal del Organismo de Inspección del EGCM a través de los diferentes canales de comunicación (correo electrónico, teléfono o WhatsApp)?'
   },
   {
     id: 'g131_q3',
@@ -36,28 +36,28 @@ export const GCFO0131_QUESTIONS: Question[] = [
     number: 5,
     sectionId: 'sec_131',
     sectionTitle: 'Evaluación del Servicio',
-    text: '¿Qué tan satisfecho(a) se encuentra con la imparcialidad e independencia y la confidencialidad demostrada por el Organismo de Inspección durante la prestación del servicio?'
+    text: '¿Qué tan satisfecho(a) se encuentra con la imparcialidad e independencia y la confidencialidad demostrada por el Organismo de Inspección del EGCM durante la prestación del servicio?'
   },
   {
     id: 'g131_q6',
     number: 6,
     sectionId: 'sec_131',
     sectionTitle: 'Evaluación del Servicio',
-    text: '¿Qué tan satisfecho(a) se encuentra con la rapidez de respuesta del Organismo de Inspección ante sus solicitudes iniciales?'
+    text: '¿Qué tan satisfecho(a) se encuentra con la rapidez de respuesta del Organismo de Inspección del EGCM ante sus solicitudes iniciales?'
   },
   {
     id: 'g131_q7',
     number: 7,
     sectionId: 'sec_131',
     sectionTitle: 'Evaluación del Servicio',
-    text: '¿Qué tan satisfecho(a) se encuentra con la confiabilidad de los resultados e informes emitidos por el Organismo de Inspección?'
+    text: '¿Qué tan satisfecho(a) se encuentra con la confiabilidad de los resultados e informes emitidos por el Organismo de Inspección del EGCM?'
   },
   {
     id: 'g131_q8',
     number: 8,
     sectionId: 'sec_131',
     sectionTitle: 'Evaluación del Servicio',
-    text: '¿Qué tan probable es que vuelva a solicitar los servicios del Organismo de Inspección de SEDAPAL en futuras necesidades?'
+    text: '¿Qué tan probable es que vuelva a solicitar los servicios del Organismo de Inspección del EGCM de SEDAPAL en futuras necesidades?'
   }
 ];
 

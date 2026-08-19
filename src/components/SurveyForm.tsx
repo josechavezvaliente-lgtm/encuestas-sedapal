@@ -4,7 +4,7 @@ import confetti from 'canvas-confetti';
 import { AlertCircle, CheckCircle2, Send, FileText, User, Building, Hash, Radio, MessageSquare, Info, Award, ClipboardList, ArrowRight } from 'lucide-react';
 import { FormatType, Question, SurveyResponse, QuestionAnswer } from '../types';
 import { getQuestionsForFormat, GCFO0131_TITLE } from '../data/initialQuestions';
-import uvmImage from '../assets/images/uvm_accredited_worker_1786655811408.jpg';
+import uvmImage from '../assets/images/uvm_nipple_pit_worker_1787081491981.jpg';
 import metrologicalImage from '../assets/images/metrological_warehouse_samples_1786574559696.jpg';
 import { SedapalLogo } from './SedapalLogo';
 
@@ -241,7 +241,7 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({
               “Muchas gracias por haber llenado nuestra encuesta, su opinión es importante para nosotros”.
             </p>
             <p className="text-xs text-[#005DAA] font-semibold mt-1">
-              SEDAPAL • Organismo de Inspección (ISO 17020)
+              SEDAPAL • Organismo de Inspección del EGCM
             </p>
           </div>
 
@@ -297,7 +297,7 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({
             <span className="text-xs font-extrabold uppercase tracking-wider text-[#005DAA] bg-[#E8F4FC] px-2.5 py-1 rounded-md border border-[#B3D8F5]">
               Formato de Encuesta GCFO0131
             </span>
-            <span className="text-xs font-bold text-slate-500">• Organismo de Inspección</span>
+            <span className="text-xs font-bold text-slate-500">• Organismo de Inspección del EGCM</span>
           </div>
           <h1 className="text-lg font-extrabold text-slate-900 leading-snug">
             {title}
@@ -878,7 +878,7 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({
             “Muchas gracias por haber llenado nuestra encuesta, su opinión es importante para nosotros”.
           </p>
           <p className="text-xs text-[#005DAA] font-medium">
-            SEDAPAL • Organismo de Inspección (ISO 17020)
+            SEDAPAL • Organismo de Inspección del EGCM
           </p>
         </div>
 

@@ -185,13 +185,17 @@ export const SurveyHistory: React.FC<SurveyHistoryProps> = ({
                         {r.averageScore} / 10
                       </span>
                     </td>
-                    <td className="py-3.5 px-4 text-center font-bold">
+                    <td className="py-3.5 px-4 text-center whitespace-nowrap">
                       {r.lowScoreCount > 0 ? (
-                        <span className="text-red-600 bg-red-50 px-2 py-0.5 rounded-full border border-red-200 text-[11px]">
-                          {r.lowScoreCount} observadas
+                        <span className="inline-flex items-center justify-center space-x-1.5 bg-rose-50 text-rose-700 px-3 py-1 rounded-lg border border-rose-200 text-xs font-bold whitespace-nowrap shadow-2xs">
+                          <AlertCircle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                          <span>{r.lowScoreCount} {r.lowScoreCount === 1 ? 'observada' : 'observadas'}</span>
                         </span>
                       ) : (
-                        <span className="text-emerald-600 font-medium">0</span>
+                        <span className="inline-flex items-center justify-center space-x-1.5 bg-emerald-50 text-emerald-700 px-3 py-1 rounded-lg border border-emerald-200 text-xs font-semibold whitespace-nowrap shadow-2xs">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                          <span>0 observadas</span>
+                        </span>
                       )}
                     </td>
                     {/* 2. Sugerencias / Comentarios Column */}

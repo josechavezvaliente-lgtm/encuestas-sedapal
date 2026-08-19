@@ -1,14 +1,19 @@
 import React, { useState } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar
+  PieChart, Pie, Cell
 } from 'recharts';
-import { FileText, Download, AlertCircle, CheckCircle2, Search, Filter, Printer, ArrowUpRight, Award, ChevronDown, ChevronUp, MessageSquare } from 'lucide-react';
+import {
+  FileText, Download, AlertCircle, CheckCircle2, Search, Filter,
+  Printer, Award, ChevronDown, ChevronUp, MessageSquare, BarChart3,
+  BookOpen, Sparkles
+} from 'lucide-react';
 import { FormatType, FormatReport, SurveyResponse } from '../types';
 import { generateFormatReport } from '../utils/storage';
-import { exportReportToCSV, exportReportToPDF } from '../utils/export';
+import { exportReportToCSV, exportReportToPDF, exportOfficialReportToPDF } from '../utils/export';
 import { AiExecutiveSummary } from './AiExecutiveSummary';
 import { SedapalLogo } from './SedapalLogo';
+import { OfficialSemestralReportView } from './OfficialSemestralReportView';
 
 interface ReportsDashboardProps {
   responses: SurveyResponse[];
@@ -21,6 +26,7 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
   selectedFormat,
   setSelectedFormat
 }) => {
+  const [activeTab, setActiveTab] = useState<'official_charts' | 'general_analytics' | 'motives_and_comments'>('official_charts');
   const [motiveSearch, setMotiveSearch] = useState('');
   const [commentsSearch, setCommentsSearch] = useState('');
   const [selectedScoreFilter, setSelectedScoreFilter] = useState<number | 'all'>('all');
@@ -75,8 +81,6 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
     isLow: Number(sc) <= 8
   }));
 
-  const COLORS = ['#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', '#22c55e', '#10b981', '#06b6d4', '#0284c7', '#2563eb'];
-
   return (
     <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 space-y-8">
       
@@ -85,21 +89,21 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
         <div>
           <div className="flex items-center space-x-2">
             <span className="bg-[#E8F4FC] text-[#005DAA] text-xs font-extrabold px-2.5 py-0.5 rounded-md border border-[#B3D8F5]">
-              Reporte Automatizado de Gestión SEDAPAL
+              Organismo de Inspección del EGCM • SEDAPAL
             </span>
             <span className="text-xs text-slate-400 font-medium">
-              Actualizado en tiempo real
+              Reporte Automatizado e Informe N° 061-2026-OI
             </span>
           </div>
           <h1 className="text-xl font-bold text-slate-900 mt-1">
-            Resultados para {activeReport.formatTitle}
+            Reportes y Gráficas de Satisfacción al Cliente
           </h1>
           
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center space-x-1.5 bg-[#E8F4FC] text-[#003865] border border-[#B3D8F5] px-3 py-1 rounded-lg text-xs font-semibold">
               <Filter className="w-3.5 h-3.5 text-[#005DAA]" />
               <span>
-                Tipo de Servicio Evaluado:{' '}
+                Filtro de Servicio:{' '}
                 <strong className="font-extrabold text-[#003865]">
                   {!selectedServiceType || selectedServiceType === 'all'
                     ? 'Todos los Tipos de Servicio (Consolidado General)'
@@ -108,10 +112,6 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
               </span>
             </span>
           </div>
-
-          <p className="text-xs text-slate-500 mt-1.5">
-            Consolidado estadístico, distribución de respuestas, e índice de justificaciones para notas &le; 8.
-          </p>
         </div>
 
         {/* SEDAPAL Logo & Export Buttons */}
@@ -122,12 +122,12 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
 
           <div className="flex flex-wrap items-center gap-2">
             <button
-              onClick={() => exportReportToPDF(activeReport)}
+              onClick={() => exportOfficialReportToPDF(activeReport, responses)}
               disabled={activeReport.totalSurveys === 0}
               className="flex items-center space-x-1.5 bg-[#005DAA] hover:bg-[#004880] text-white px-4 py-2.5 rounded-xl text-xs font-extrabold shadow-md hover:shadow-lg transition disabled:opacity-50"
             >
               <Download className="w-3.5 h-3.5 text-sky-200" />
-              <span>PDF Oficial SEDAPAL</span>
+              <span>Informe N° 061 Oficial (PDF)</span>
             </button>
 
             <button
@@ -167,7 +167,7 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
             onClick={() => setSelectedServiceType('all')}
             className={`p-3 rounded-xl border text-left text-xs font-semibold transition flex items-center justify-between ${
               selectedServiceType === 'all'
-                ? 'bg-sky-600 text-white border-sky-600 shadow-sm'
+                ? 'bg-[#005DAA] text-white border-[#005DAA] shadow-sm'
                 : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
             }`}
           >
@@ -184,7 +184,7 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
             onClick={() => setSelectedServiceType('Servicios de Evaluación Metrológica de Medidores (evaluación de muestras, aguas subterráneas, control de calidad, etc.)')}
             className={`p-3 rounded-xl border text-left text-xs font-semibold transition flex items-center justify-between ${
               selectedServiceType === 'Servicios de Evaluación Metrológica de Medidores (evaluación de muestras, aguas subterráneas, control de calidad, etc.)'
-                ? 'bg-sky-600 text-white border-sky-600 shadow-sm'
+                ? 'bg-[#005DAA] text-white border-[#005DAA] shadow-sm'
                 : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
             }`}
           >
@@ -201,7 +201,7 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
             onClick={() => setSelectedServiceType('Servicios de verificación acreditados / UVM (remesas de verificación posterior, verificación inicial)')}
             className={`p-3 rounded-xl border text-left text-xs font-semibold transition flex items-center justify-between ${
               selectedServiceType === 'Servicios de verificación acreditados / UVM (remesas de verificación posterior, verificación inicial)'
-                ? 'bg-sky-600 text-white border-sky-600 shadow-sm'
+                ? 'bg-[#005DAA] text-white border-[#005DAA] shadow-sm'
                 : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
             }`}
           >
@@ -215,6 +215,45 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
         </div>
       </div>
 
+      {/* Main Mode Navigation Tabs */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-2">
+        <button
+          onClick={() => setActiveTab('official_charts')}
+          className={`flex items-center space-x-2 px-5 py-3 rounded-2xl text-xs font-black transition ${
+            activeTab === 'official_charts'
+              ? 'bg-[#005DAA] text-white shadow-md'
+              : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <BookOpen className="w-4 h-4" />
+          <span>Gráficas del Informe Oficial (Informe N° 061-2026-OI)</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('general_analytics')}
+          className={`flex items-center space-x-2 px-5 py-3 rounded-2xl text-xs font-bold transition ${
+            activeTab === 'general_analytics'
+              ? 'bg-[#005DAA] text-white shadow-md'
+              : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <BarChart3 className="w-4 h-4" />
+          <span>Métricas Continuas & Desglose por Pregunta</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('motives_and_comments')}
+          className={`flex items-center space-x-2 px-5 py-3 rounded-2xl text-xs font-bold transition ${
+            activeTab === 'motives_and_comments'
+              ? 'bg-[#005DAA] text-white shadow-md'
+              : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <MessageSquare className="w-4 h-4" />
+          <span>Control de Calidad & Motivos (&le; 8) ({activeReport.totalLowScores})</span>
+        </button>
+      </div>
+
       {activeReport.totalSurveys === 0 ? (
         <div className="bg-white rounded-2xl p-12 text-center border border-slate-200 shadow-sm">
           <div className="w-16 h-16 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -224,159 +263,13 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
             No se han registrado evaluaciones para el formato {selectedFormat}
           </h3>
           <p className="text-xs text-slate-500 max-w-md mx-auto mb-6">
-            Realice su primera evaluación o utilice la opción "Cargar Encuestas Demo" en el menú superior para visualizar inmediatamente los gráficos y reportes.
+            Realice una evaluación en el formulario de encuesta para visualizar de inmediato todas las gráficas e informes.
           </p>
         </div>
-      ) : (
-        <>
-          {/* Executive KPI Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            
-            {/* Card 1: Total Surveys */}
-            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Encuestas Evaluadas</p>
-                <h3 className="text-2xl font-black text-slate-900 mt-1">{activeReport.totalSurveys}</h3>
-                <p className="text-[11px] text-slate-400 mt-0.5">Respuestas totales registradas</p>
-              </div>
-              <div className="bg-sky-50 text-sky-600 p-3 rounded-2xl border border-sky-100">
-                <FileText className="w-6 h-6" />
-              </div>
-            </div>
-
-            {/* Card 2: Promedio General */}
-            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Puntaje Promedio</p>
-                <div className="flex items-baseline space-x-1.5 mt-1">
-                  <h3 className={`text-2xl font-black ${
-                    activeReport.overallAverage >= 8 ? 'text-emerald-600' : activeReport.overallAverage >= 7 ? 'text-amber-600' : 'text-red-600'
-                  }`}>
-                    {activeReport.overallAverage}
-                  </h3>
-                  <span className="text-xs text-slate-400 font-bold">/ 10</span>
-                </div>
-                <p className="text-[11px] text-slate-400 mt-0.5">Escala continua 1 a 10</p>
-              </div>
-              <div className={`p-3 rounded-2xl border ${
-                activeReport.overallAverage >= 8
-                  ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
-                  : 'bg-amber-50 text-amber-600 border-amber-100'
-              }`}>
-                <Award className="w-6 h-6" />
-              </div>
-            </div>
-
-            {/* Card 3: CSAT Index (% >= 8) */}
-            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Índice CSAT (≥ 8)</p>
-                <h3 className="text-2xl font-black text-sky-700 mt-1">{activeReport.csatIndex}%</h3>
-                <p className="text-[11px] text-slate-400 mt-0.5">% respuestas altamente satisfechas</p>
-              </div>
-              <div className="bg-sky-50 text-sky-600 p-3 rounded-2xl border border-sky-100">
-                <CheckCircle2 className="w-6 h-6" />
-              </div>
-            </div>
-
-            {/* Card 4: Low Scores (< 8) */}
-            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Observaciones (&lt; 8)</p>
-                <h3 className={`text-2xl font-black mt-1 ${activeReport.totalLowScores > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
-                  {activeReport.totalLowScores}
-                </h3>
-                <p className="text-[11px] text-slate-400 mt-0.5">Respuestas con motivo justificado</p>
-              </div>
-              <div className={`p-3 rounded-2xl border ${
-                activeReport.totalLowScores > 0
-                  ? 'bg-amber-50 text-amber-600 border-amber-100'
-                  : 'bg-emerald-50 text-emerald-600 border-emerald-100'
-              }`}>
-                <AlertCircle className="w-6 h-6" />
-              </div>
-            </div>
-
-          </div>
-
-          {/* AI Executive Diagnostic */}
-          <AiExecutiveSummary report={activeReport} />
-
-          {/* Charts Section */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            
-            {/* Chart 1: Promedio por Pregunta */}
-            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-              <h3 className="text-sm font-bold text-slate-900 mb-1">
-                Puntaje Promedio por Pregunta
-              </h3>
-              <p className="text-xs text-slate-500 mb-4">
-                Desempeño en escala de 1 a 10 para cada una de las {activeReport.questionMetrics.length} preguntas evaluadas
-              </p>
-
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={questionChartData} margin={{ top: 10, right: 10, left: -20, bottom: 25 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                    <XAxis
-                      dataKey="shortName"
-                      tick={{ fontSize: 11, fill: '#64748b' }}
-                      interval={0}
-                    />
-                    <YAxis domain={[0, 10]} tick={{ fontSize: 11, fill: '#64748b' }} />
-                    <Tooltip
-                      formatter={(val: number) => [`${val} / 10`, 'Promedio']}
-                      labelFormatter={(label, items) => items[0]?.payload?.fullName || label}
-                      contentStyle={{ borderRadius: '12px', borderColor: '#cbd5e1', fontSize: '12px' }}
-                    />
-                    <Bar dataKey="promedio" radius={[6, 6, 0, 0]} barSize={36}>
-                      {questionChartData.map((entry, index) => (
-                        <Cell
-                          key={`qcell-${index}`}
-                          fill={entry.promedio >= 8 ? '#0284c7' : '#f59e0b'}
-                        />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* Chart 2: Distribución de Frecuencia de Notas (1 a 10) */}
-            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-              <h3 className="text-sm font-bold text-slate-900 mb-1">
-                Distribución de Frecuencia de Valoraciones (1 a 10)
-              </h3>
-              <p className="text-xs text-slate-500 mb-4">
-                Notas en <span className="text-amber-600 font-bold">rojo/ámbar (&lt;8)</span> requirieron captura de motivo
-              </p>
-
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={ratingHistData} margin={{ top: 10, right: 10, left: -20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                    <XAxis dataKey="valScore" tick={{ fontSize: 11, fill: '#64748b' }} />
-                    <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#64748b' }} />
-                    <Tooltip
-                      formatter={(val: number) => [`${val} respuestas`, 'Frecuencia']}
-                      labelFormatter={(label) => `Nota asignada: ${label}/10`}
-                      contentStyle={{ borderRadius: '12px', borderColor: '#cbd5e1', fontSize: '12px' }}
-                    />
-                    <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                      {ratingHistData.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={entry.valScore < 8 ? '#f59e0b' : '#10b981'}
-                        />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-          </div>
-
+      ) : activeTab === 'official_charts' ? (
+        <OfficialSemestralReportView report={activeReport} responses={responses} />
+      ) : activeTab === 'motives_and_comments' ? (
+        <div className="space-y-6">
           {/* Section: REGISTRO CONSOLIDADO DE MOTIVOS (< 8) */}
           <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
@@ -386,11 +279,11 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
                     Control de Calidad
                   </span>
                   <h2 className="text-base font-bold text-slate-900">
-                    Motivos de Bajas Calificaciones (&lt; 8)
+                    Motivos de Bajas Calificaciones (&le; 8)
                   </h2>
                 </div>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Listado consolidado de justificaciones ingresadas obligatoriamente por los usuarios cuando asignaron puntaje menor a 8.
+                  Listado consolidado de justificaciones ingresadas obligatoriamente por los usuarios cuando asignaron puntaje menor o igual a 8.
                 </p>
               </div>
 
@@ -480,7 +373,7 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
                     <MessageSquare className="w-4 h-4" />
                   </span>
                   <h2 className="text-base font-bold text-slate-900">
-                    2. Comentarios y Sugerencias de los Clientes ({activeReport.allComments?.length || 0})
+                    Comentarios y Sugerencias de los Clientes ({activeReport.allComments?.length || 0})
                   </h2>
                 </div>
                 <p className="text-xs text-slate-500 mt-1">
@@ -508,11 +401,6 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
                   {(activeReport.allComments?.length || 0) === 0
                     ? 'No se registraron comentarios ni sugerencias en las encuestas de este período/filtro.'
                     : 'No se encontraron sugerencias con los términos de búsqueda actuales.'}
-                </p>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  {(activeReport.allComments?.length || 0) === 0
-                    ? 'Los comentarios adicionales ingresados en el campo 2 aparecerán aquí.'
-                    : 'Intente buscar con otro nombre de cliente o palabra clave.'}
                 </p>
               </div>
             ) : (
@@ -554,6 +442,156 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
               </div>
             )}
           </div>
+        </div>
+      ) : (
+        <>
+          {/* Executive KPI Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            
+            {/* Card 1: Total Surveys */}
+            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Encuestas Evaluadas</p>
+                <h3 className="text-2xl font-black text-slate-900 mt-1">{activeReport.totalSurveys}</h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">Respuestas totales registradas</p>
+              </div>
+              <div className="bg-sky-50 text-sky-600 p-3 rounded-2xl border border-sky-100">
+                <FileText className="w-6 h-6" />
+              </div>
+            </div>
+
+            {/* Card 2: Promedio General */}
+            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Puntaje Promedio</p>
+                <div className="flex items-baseline space-x-1.5 mt-1">
+                  <h3 className={`text-2xl font-black ${
+                    activeReport.overallAverage >= 8 ? 'text-emerald-600' : activeReport.overallAverage >= 7 ? 'text-amber-600' : 'text-red-600'
+                  }`}>
+                    {activeReport.overallAverage}
+                  </h3>
+                  <span className="text-xs text-slate-400 font-bold">/ 10</span>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-0.5">Escala continua 1 a 10</p>
+              </div>
+              <div className={`p-3 rounded-2xl border ${
+                activeReport.overallAverage >= 8
+                  ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                  : 'bg-amber-50 text-amber-600 border-amber-100'
+              }`}>
+                <Award className="w-6 h-6" />
+              </div>
+            </div>
+
+            {/* Card 3: CSAT Index (% >= 8) */}
+            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Índice CSAT (≥ 8)</p>
+                <h3 className="text-2xl font-black text-sky-700 mt-1">{activeReport.csatIndex}%</h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">% respuestas satisfechas (&gt;8)</p>
+              </div>
+              <div className="bg-sky-50 text-sky-600 p-3 rounded-2xl border border-sky-100">
+                <CheckCircle2 className="w-6 h-6" />
+              </div>
+            </div>
+
+            {/* Card 4: Low Scores (< 8) */}
+            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Observaciones (&le; 8)</p>
+                <h3 className={`text-2xl font-black mt-1 ${activeReport.totalLowScores > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                  {activeReport.totalLowScores}
+                </h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">Respuestas con motivo justificado</p>
+              </div>
+              <div className={`p-3 rounded-2xl border ${
+                activeReport.totalLowScores > 0
+                  ? 'bg-amber-50 text-amber-600 border-amber-100'
+                  : 'bg-emerald-50 text-emerald-600 border-emerald-100'
+              }`}>
+                <AlertCircle className="w-6 h-6" />
+              </div>
+            </div>
+
+          </div>
+
+          {/* AI Executive Diagnostic */}
+          <AiExecutiveSummary report={activeReport} />
+
+          {/* Charts Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            {/* Chart 1: Promedio por Pregunta */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+              <h3 className="text-sm font-bold text-slate-900 mb-1">
+                Puntaje Promedio por Pregunta
+              </h3>
+              <p className="text-xs text-slate-500 mb-4">
+                Desempeño en escala de 1 a 10 para cada una de las {activeReport.questionMetrics.length} preguntas evaluadas
+              </p>
+
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={questionChartData} margin={{ top: 10, right: 10, left: -20, bottom: 25 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                    <XAxis
+                      dataKey="shortName"
+                      tick={{ fontSize: 11, fill: '#64748b' }}
+                      interval={0}
+                    />
+                    <YAxis domain={[0, 10]} tick={{ fontSize: 11, fill: '#64748b' }} />
+                    <Tooltip
+                      formatter={(val: number) => [`${val} / 10`, 'Promedio']}
+                      labelFormatter={(label, items) => items[0]?.payload?.fullName || label}
+                      contentStyle={{ borderRadius: '12px', borderColor: '#cbd5e1', fontSize: '12px' }}
+                    />
+                    <Bar dataKey="promedio" radius={[6, 6, 0, 0]} barSize={36}>
+                      {questionChartData.map((entry, index) => (
+                        <Cell
+                          key={`qcell-${index}`}
+                          fill={entry.promedio >= 8 ? '#0284c7' : '#f59e0b'}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Chart 2: Distribución de Frecuencia de Notas (1 a 10) */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+              <h3 className="text-sm font-bold text-slate-900 mb-1">
+                Distribución de Frecuencia de Valoraciones (1 a 10)
+              </h3>
+              <p className="text-xs text-slate-500 mb-4">
+                Notas en <span className="text-amber-600 font-bold">rojo/ámbar (&le; 8)</span> requirieron captura obligatoria de motivo
+              </p>
+
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={ratingHistData} margin={{ top: 10, right: 10, left: -20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                    <XAxis dataKey="valScore" tick={{ fontSize: 11, fill: '#64748b' }} />
+                    <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#64748b' }} />
+                    <Tooltip
+                      formatter={(val: number) => [`${val} respuestas`, 'Frecuencia']}
+                      labelFormatter={(label) => `Nota asignada: ${label}/10`}
+                      contentStyle={{ borderRadius: '12px', borderColor: '#cbd5e1', fontSize: '12px' }}
+                    />
+                    <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                      {ratingHistData.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={entry.valScore <= 8 ? '#f59e0b' : '#10b981'}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+          </div>
 
           {/* Section: DETALLE PREGUNTA POR PREGUNTA */}
           <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
@@ -569,8 +607,8 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
                     <th className="py-3 px-3">Pregunta</th>
                     <th className="py-3 px-3">Sección</th>
                     <th className="py-3 px-3 text-center">Promedio</th>
-                    <th className="py-3 px-3 text-center">CSAT (≥8)</th>
-                    <th className="py-3 px-3 text-center">Alertas (&lt;8)</th>
+                    <th className="py-3 px-3 text-center">CSAT (&gt;8)</th>
+                    <th className="py-3 px-3 text-center">Alertas (&le;8)</th>
                     <th className="py-3 px-3 text-right">Detalles</th>
                   </tr>
                 </thead>
@@ -634,11 +672,11 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
                                     <div
                                       key={sd.score}
                                       className={`p-2 rounded-lg border ${
-                                        sd.score < 8 ? 'bg-amber-50 border-amber-200' : 'bg-emerald-50 border-emerald-200'
+                                        sd.score <= 8 ? 'bg-amber-50 border-amber-200' : 'bg-emerald-50 border-emerald-200'
                                       }`}
                                     >
                                       <p className="text-[10px] text-slate-500 font-bold">{sd.score} pts</p>
-                                      <p className={`font-black text-sm ${sd.score < 8 ? 'text-amber-700' : 'text-emerald-700'}`}>
+                                      <p className={`font-black text-sm ${sd.score <= 8 ? 'text-amber-700' : 'text-emerald-700'}`}>
                                         {sd.count}
                                       </p>
                                     </div>
@@ -649,7 +687,7 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
                                   <div className="mt-3 space-y-2 border-t border-slate-100 pt-3">
                                     <p className="text-xs font-bold text-amber-800 flex items-center space-x-1">
                                       <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
-                                      <span>Motivos registrados para esta pregunta (&lt; 8):</span>
+                                      <span>Motivos registrados para esta pregunta (&le; 8):</span>
                                     </p>
                                     {qm.motives.map((m, mIdx) => (
                                       <div key={mIdx} className="bg-amber-50/80 p-2.5 rounded-lg border border-amber-200 text-xs">
@@ -676,3 +714,4 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
     </div>
   );
 };
+

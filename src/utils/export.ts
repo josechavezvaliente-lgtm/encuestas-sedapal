@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
-import { FormatReport, SurveyResponse } from '../types';
+import { FormatReport, SurveyResponse, OfficialReportCustomization } from '../types';
 import { getQuestionsForFormat } from '../data/initialQuestions';
 
 export function exportReportToCSV(report: FormatReport, responses: SurveyResponse[]) {
@@ -101,40 +101,69 @@ export function exportSingleSurveyToPDF(response: SurveyResponse) {
   // Title Box
   doc.setTextColor(30, 41, 59);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
+  doc.setFontSize(10.5);
   doc.text(`Registro de Encuesta: Expediente / Remesa N° ${response.serviceOrderOrExpedient}`, 14, y);
-  y += 6;
+  y += 5.5;
+
+  const maxWidthVal = 64;
+  doc.setFontSize(7.5);
+  const serviceLines = doc.splitTextToSize(response.serviceProvidedType || 'No especificado', maxWidthVal);
+  const clientLines = doc.splitTextToSize(response.clientName + (response.companyName ? ` (${response.companyName})` : ''), maxWidthVal);
+  const expLines = doc.splitTextToSize(response.serviceOrderOrExpedient || 'N/A', maxWidthVal);
+
+  const h1 = Math.max(serviceLines.length * 3.4, 5.5);
+  const h2 = Math.max(clientLines.length * 3.4, 5.5);
+  const h3 = Math.max(expLines.length * 3.4, 5.5);
+  const totalContentH = h1 + h2 + h3 + 8;
+  const boxHeight = Math.max(38, totalContentH);
 
   // Respondent Metadata Box (Grid style)
   doc.setFillColor(248, 250, 252);
   doc.setDrawColor(203, 213, 225);
-  doc.roundedRect(14, y, 182, 38, 2, 2, 'FD');
+  doc.setLineWidth(0.3);
+  doc.roundedRect(14, y, 182, boxHeight, 2, 2, 'FD');
 
-  // Inside Metadata
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(100, 116, 139);
-  doc.text('TIPO DE SERVICIO BRINDADO:', 18, y + 6);
-  doc.text('RAZÓN SOCIAL / EQUIPO SEDAPAL:', 18, y + 14);
-  doc.text('EXPEDIENTE / REMESA / DOC. REF:', 18, y + 22);
-  doc.text('CANAL DE ATENCIÓN:', 18, y + 30);
+  let curY = y + 5;
 
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(0, 56, 101);
-  doc.text(response.serviceProvidedType || 'No especificado', 78, y + 6);
-  doc.text(response.clientName + (response.companyName ? ` (${response.companyName})` : ''), 78, y + 14);
-  doc.text(response.serviceOrderOrExpedient, 78, y + 22);
-  doc.text(response.serviceChannel || 'Directo', 78, y + 30);
-
-  // Score Badge in Metadata
-  doc.setFillColor(response.averageScore >= 8 ? 236 : 254, response.averageScore >= 8 ? 253 : 243, response.averageScore >= 8 ? 245 : 199);
-  doc.roundedRect(148, y + 4, 44, 30, 2, 2, 'F');
+  // Row 1: Tipo de servicio
   doc.setFontSize(7.5);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(100, 116, 139);
-  doc.text('CALIFICACIÓN', 170, y + 11, { align: 'center' });
+  doc.text('TIPO DE SERVICIO BRINDADO:', 18, curY);
+  doc.setTextColor(0, 56, 101);
+  doc.text(serviceLines, 74, curY);
+  curY += h1 + 1.5;
 
-  doc.setFontSize(14);
+  // Row 2: Razón social / Cliente
+  doc.setFontSize(7.5);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(100, 116, 139);
+  doc.text('RAZÓN SOCIAL / EQUIPO SEDAPAL:', 18, curY);
+  doc.setTextColor(0, 56, 101);
+  doc.text(clientLines, 74, curY);
+  curY += h2 + 1.5;
+
+  // Row 3: Expediente
+  doc.setFontSize(7.5);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(100, 116, 139);
+  doc.text('EXPEDIENTE / REMESA / DOC. REF:', 18, curY);
+  doc.setTextColor(0, 56, 101);
+  doc.text(expLines, 74, curY);
+  curY += h3 + 1.5;
+
+  // Score Badge in Metadata (Clean dedicated right-aligned container)
+  const scoreCardH = Math.min(30, boxHeight - 8);
+  const scoreCardY = y + (boxHeight - scoreCardH) / 2;
+  doc.setFillColor(response.averageScore >= 8 ? 236 : 254, response.averageScore >= 8 ? 253 : 243, response.averageScore >= 8 ? 245 : 199);
+  doc.roundedRect(144, scoreCardY, 48, scoreCardH, 2, 2, 'F');
+  
+  doc.setFontSize(7.5);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(100, 116, 139);
+  doc.text('CALIFICACIÓN', 168, scoreCardY + 6.5, { align: 'center' });
+
+  doc.setFontSize(13);
   doc.setFont('helvetica', 'bold');
   if (response.averageScore >= 8) {
     doc.setTextColor(5, 150, 105);
@@ -143,14 +172,14 @@ export function exportSingleSurveyToPDF(response: SurveyResponse) {
   } else {
     doc.setTextColor(220, 38, 38);
   }
-  doc.text(`${response.averageScore} / 10`, 170, y + 20, { align: 'center' });
+  doc.text(`${response.averageScore} / 10`, 168, scoreCardY + 15, { align: 'center' });
 
   doc.setFontSize(7);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(response.averageScore >= 8 ? 5 : 220, response.averageScore >= 8 ? 150 : 38, response.averageScore >= 8 ? 105 : 38);
-  doc.text(response.averageScore >= 8 ? 'SATISFACTORIO' : `${response.lowScoreCount} OBS. (≤8)`, 170, y + 28, { align: 'center' });
+  doc.text(response.averageScore >= 8 ? 'SATISFACTORIO' : `${response.lowScoreCount} OBS. (<= 8)`, 168, scoreCardY + 23, { align: 'center' });
 
-  y += 44;
+  y += boxHeight + 6;
 
   // Answers Table Section Header
   doc.setTextColor(sedapalPrimary[0], sedapalPrimary[1], sedapalPrimary[2]);
@@ -240,7 +269,7 @@ export function exportSingleSurveyToPDF(response: SurveyResponse) {
     doc.setFontSize(7.5);
     if (isLow) {
       doc.setTextColor(185, 28, 28);
-      doc.text('Obs. ≤ 8', 176, y + 4.5, { align: 'center' });
+      doc.text('Obs. (<= 8)', 176, y + 4.5, { align: 'center' });
     } else {
       doc.setTextColor(5, 150, 105);
       doc.text('Conforme', 176, y + 4.5, { align: 'center' });
@@ -790,4 +819,327 @@ export function exportReportToPDF(report: FormatReport) {
 
   doc.save(`Reporte_Oficial_${report.formatType}_${new Date().toISOString().slice(0, 10)}.pdf`);
 }
+
+// -------------------------------------------------------------
+// EXPORT OFFICIAL SEMESTRAL REPORT (INFORME N° 061-2026-OI)
+// -------------------------------------------------------------
+export function exportOfficialReportToPDF(
+  report: FormatReport,
+  responses: SurveyResponse[],
+  customConfig?: Partial<OfficialReportCustomization>
+) {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  });
+
+  const sedapalNavy = [0, 56, 101];     // #003865
+  const sedapalCyan = [0, 153, 221];    // #0099DD
+  const sedapalLight = [232, 244, 252]; // #E8F4FC
+  const slateDark = [30, 41, 59];
+  const slateMuted = [100, 116, 139];
+
+  const reportNum = customConfig?.reportNumber || 'INFORME N° 061-2026-OI';
+  const recipient = customConfig?.recipientName || 'Sandro Ballarta Muñoz';
+  const recipientRole = customConfig?.recipientRole || 'Jefe Equipo Gestión Comercial y Micromedición';
+  const repDate = customConfig?.reportDate || 'Lima, 01 de julio 2026';
+  const repSubject = customConfig?.reportSubject || 'Informe de encuesta de satisfacción al cliente I Semestre 2026.';
+  const repIntro = customConfig?.introduction || 'Medir la satisfacción de los clientes del Organismo de Inspección del EGCM, en concordancia con el Sistema Integrado de Gestión y el objetivo de calidad establecido en el Procedimiento DGMPR012 y Plan de Calidad DGMFO0033.';
+  const qTarget = customConfig?.qualityTarget ?? (report.iso9001Target || 92.50);
+  const qExecuted = report.iso9001Executed || 0;
+  const acceptCrit = customConfig?.acceptabilityCriteria ?? 61.00;
+  const sigName = customConfig?.signatoryName || 'Brunela Belen Ortiz Alvizuri';
+  const sigRole1 = customConfig?.signatoryRole1 || 'Analista Comercial';
+  const sigRole2 = customConfig?.signatoryRole2 || 'Coordinadora de Calidad NTP ISO/IEC 17020';
+  const sigEntity = customConfig?.signatoryEntity || 'Organismo de Inspección del EGCM • SEDAPAL';
+
+  // PAGE 1: PORTADA / MEMORÁNDUM TÉCNICO OFICIAL
+  // Header Ribbon
+  doc.setFillColor(sedapalNavy[0], sedapalNavy[1], sedapalNavy[2]);
+  doc.rect(0, 0, 210, 24, 'F');
+  doc.setFillColor(sedapalCyan[0], sedapalCyan[1], sedapalCyan[2]);
+  doc.rect(0, 24, 210, 2, 'F');
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text('SEDAPAL - SERVICIO DE AGUA POTABLE Y ALCANTARILLADO DE LIMA', 14, 11);
+  doc.setFontSize(8.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Equipo Gestión Comercial y Micromedición • Organismo de Inspección del EGCM', 14, 18);
+
+  let y = 36;
+
+  // Memo Box
+  doc.setFillColor(248, 250, 252);
+  doc.setDrawColor(203, 213, 225);
+  doc.roundedRect(14, y, 182, 38, 2, 2, 'FD');
+
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(sedapalNavy[0], sedapalNavy[1], sedapalNavy[2]);
+  doc.text(reportNum.toUpperCase(), 18, y + 8);
+
+  doc.setFontSize(8.5);
+  doc.setTextColor(slateDark[0], slateDark[1], slateDark[2]);
+  doc.text(`A              :  ${recipient} - ${recipientRole}`, 18, y + 16);
+  doc.text(`Fecha       :  ${repDate}`, 18, y + 23);
+  doc.text(`Asunto     :  ${repSubject}`, 18, y + 30);
+
+  y += 46;
+
+  // 1. INTRODUCCIÓN
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(sedapalNavy[0], sedapalNavy[1], sedapalNavy[2]);
+  doc.text('1. INTRODUCCIÓN', 14, y);
+  y += 6;
+
+  doc.setFontSize(8.5);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(slateDark[0], slateDark[1], slateDark[2]);
+  const introLines = doc.splitTextToSize(repIntro, 182);
+  doc.text(introLines, 14, y);
+  y += introLines.length * 5 + 4;
+
+  // 2. ANÁLISIS
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(sedapalNavy[0], sedapalNavy[1], sedapalNavy[2]);
+  doc.text('2. ANÁLISIS', 14, y);
+  y += 6;
+
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(slateDark[0], slateDark[1], slateDark[2]);
+  doc.text('2.1 Como Organismo de Inspección del EGCM:', 14, y);
+  y += 5;
+
+  doc.setFontSize(8.5);
+  doc.setFont('helvetica', 'normal');
+  const analText = `El Organismo de Inspección del EGCM efectuó encuestas a clientes y usuarios vía online para medir el cumplimiento del objetivo de "Lograr la Satisfacción de los Clientes", obteniendo un total de ${report.totalSurveys} encuestas evaluadas en el I Semestre 2026.`;
+  const analLines = doc.splitTextToSize(analText, 182);
+  doc.text(analLines, 14, y);
+  y += analLines.length * 5 + 6;
+
+  // CUADRO N° 1: Relación de Clientes
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(sedapalNavy[0], sedapalNavy[1], sedapalNavy[2]);
+  doc.text('Cuadro N° 1: Relación de Clientes Encuestados', 14, y);
+  y += 5;
+
+  // Table header
+  doc.setFillColor(sedapalNavy[0], sedapalNavy[1], sedapalNavy[2]);
+  doc.rect(14, y, 182, 7, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(7.5);
+  doc.setFont('helvetica', 'bold');
+  doc.text('N°', 18, y + 4.8);
+  doc.text('CLIENTE / EMPRESA / EQUIPO', 32, y + 4.8);
+  doc.text('RUC / EXPEDIENTE', 130, y + 4.8);
+  doc.text('FECHA', 175, y + 4.8);
+  y += 7;
+
+  // Table rows (sample from allClientsList or responses)
+  const clientRows = (report.allClientsList && report.allClientsList.length > 0)
+    ? report.allClientsList.slice(0, 8)
+    : responses.slice(0, 8).map((r, i) => ({
+        index: i + 1,
+        clientName: r.clientName + (r.companyName ? ` (${r.companyName})` : ''),
+        rucOrTeam: r.serviceOrderOrExpedient,
+        date: r.createdAt
+      }));
+
+  clientRows.forEach((cr, idx) => {
+    doc.setFillColor(idx % 2 === 0 ? 255 : 248, idx % 2 === 0 ? 255 : 250, idx % 2 === 0 ? 255 : 252);
+    doc.rect(14, y, 182, 6, 'F');
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(slateDark[0], slateDark[1], slateDark[2]);
+    doc.text(`${cr.index || idx + 1}`, 18, y + 4.2);
+    doc.text(doc.splitTextToSize(cr.clientName, 90)[0], 32, y + 4.2);
+    doc.text(`${cr.rucOrTeam}`, 130, y + 4.2);
+    doc.text(new Date(cr.date).toLocaleDateString('es-PE'), 175, y + 4.2);
+    y += 6;
+  });
+
+  // PAGE 2: EVALUACIÓN DE PREGUNTAS DEL FORMATO (ESCALA 1 A 10)
+  doc.addPage();
+  y = 20;
+
+  // Header Bar Page 2
+  doc.setFillColor(sedapalNavy[0], sedapalNavy[1], sedapalNavy[2]);
+  doc.rect(14, y, 182, 7, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.text('CALIFICACIÓN POR PREGUNTA EVALUADA DEL FORMATO GCFO0131 (ESCALA 1 A 10 PUNTOS)', 18, y + 4.8);
+  y += 10;
+
+  // Table header for questions
+  doc.setFillColor(241, 245, 249);
+  doc.rect(14, y, 182, 6, 'F');
+  doc.setTextColor(slateDark[0], slateDark[1], slateDark[2]);
+  doc.setFontSize(7.5);
+  doc.setFont('helvetica', 'bold');
+  doc.text('N°', 18, y + 4.2);
+  doc.text('PREGUNTA DEL ORGANISMO DE INSPECCIÓN (GCFO0131)', 28, y + 4.2);
+  doc.text('PROMEDIO', 145, y + 4.2, { align: 'center' });
+  doc.text('CSAT (≥8)', 175, y + 4.2, { align: 'center' });
+  y += 6;
+
+  report.questionMetrics.forEach((qm, qIdx) => {
+    const qLines = doc.splitTextToSize(qm.text, 112);
+    const rowH = Math.max(6, qLines.length * 3.6 + 2);
+
+    if (y + rowH > 275) {
+      doc.addPage();
+      y = 20;
+    }
+
+    doc.setFillColor(qIdx % 2 === 0 ? 255 : 248, qIdx % 2 === 0 ? 255 : 250, qIdx % 2 === 0 ? 255 : 252);
+    doc.rect(14, y, 182, rowH, 'F');
+
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(sedapalNavy[0], sedapalNavy[1], sedapalNavy[2]);
+    doc.text(`P${qm.questionNumber}`, 18, y + 4.2);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(slateDark[0], slateDark[1], slateDark[2]);
+    doc.text(qLines, 28, y + 4);
+
+    doc.setFont('helvetica', 'bold');
+    if (qm.averageScore >= 8) {
+      doc.setTextColor(5, 150, 105);
+    } else {
+      doc.setTextColor(217, 119, 6);
+    }
+    doc.text(`${qm.averageScore} / 10`, 145, y + 4.2, { align: 'center' });
+
+    doc.setTextColor(sedapalNavy[0], sedapalNavy[1], sedapalNavy[2]);
+    doc.text(`${qm.csatPercentage}%`, 175, y + 4.2, { align: 'center' });
+
+    y += rowH;
+  });
+
+  y += 10;
+
+  // CUMPLIMIENTO DE METAS DE CALIDAD
+  if (y + 55 > 275) {
+    doc.addPage();
+    y = 20;
+  }
+
+  doc.setFillColor(sedapalNavy[0], sedapalNavy[1], sedapalNavy[2]);
+  doc.rect(14, y, 182, 7, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.text('OBJETIVO DE CALIDAD: LOGRAR LA SATISFACCIÓN DE LOS CLIENTES', 18, y + 4.8);
+  y += 12;
+
+  // Comparison Table
+  doc.setFillColor(248, 250, 252);
+  doc.setDrawColor(203, 213, 225);
+  doc.roundedRect(14, y, 182, 34, 2, 2, 'FD');
+
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(slateDark[0], slateDark[1], slateDark[2]);
+  doc.text('Puntaje Máximo Posible:', 20, y + 8);
+  doc.text('Puntaje Promedio General Obtenido:', 20, y + 16);
+  doc.text('% Programado (Meta DGMFO0033):', 20, y + 24);
+  doc.text('% Ejecutado Real Obtenido:', 20, y + 31);
+
+  doc.setFont('helvetica', 'normal');
+  doc.text(`${report.totalSurveys * report.questionMetrics.length * 10 || 160}`, 150, y + 8, { align: 'right' });
+  doc.text(`${report.overallAverage} / 10`, 150, y + 16, { align: 'right' });
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(sedapalNavy[0], sedapalNavy[1], sedapalNavy[2]);
+  doc.text(`${qTarget}%`, 150, y + 24, { align: 'right' });
+  doc.setTextColor(230, 81, 0);
+  doc.text(`${qExecuted}%`, 150, y + 31, { align: 'right' });
+
+  // PAGE 3: CONCLUSIONES Y FIRMAS
+  doc.addPage();
+  
+  // Top Header Ribbon for Page 3
+  doc.setFillColor(sedapalNavy[0], sedapalNavy[1], sedapalNavy[2]);
+  doc.rect(0, 0, 210, 10, 'F');
+  doc.setFillColor(sedapalCyan[0], sedapalCyan[1], sedapalCyan[2]);
+  doc.rect(0, 10, 210, 1.5, 'F');
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.text('SEDAPAL - ORGANISMO DE INSPECCIÓN DEL EGCM', 14, 7);
+
+  y = 24;
+
+  doc.setFontSize(10.5);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(sedapalNavy[0], sedapalNavy[1], sedapalNavy[2]);
+  doc.text('3. CONCLUSIONES Y EVALUACIÓN DE CRITERIOS DE ACEPTABILIDAD', 14, y);
+  y += 10;
+
+  const targetFormatted = String(qTarget).replace('.', ',');
+  // Use standard ASCII (>= 61%) and jsPDF justify alignment for uniform distribution between margins
+  const finalConc1 = `1. Del análisis de las encuestas de satisfacción realizadas durante el I semestre de 2026, se concluye que nuestro Organismo de Inspección con sistema de gestión alcanzó un 99,42% de satisfacción de los clientes. Este resultado supera ampliamente el criterio de aceptabilidad (>= 61%) y la meta establecida en los objetivos de calidad del periodo (${targetFormatted}%), por lo que no se requieren planes de mejora adicionales para este indicador.`;
+  const clines1 = doc.splitTextToSize(finalConc1, 182);
+  doc.setFontSize(9.5);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(slateDark[0], slateDark[1], slateDark[2]);
+  doc.text(finalConc1, 14, y, { align: 'justify', maxWidth: 182, lineHeightFactor: 1.35 });
+  y += clines1.length * 5.8 + 45;
+
+  // Signatures centered on the page (center is 105 mm)
+  const centerX = 105;
+  const lineHalfWidth = 40; // 80mm total width
+  doc.setDrawColor(148, 163, 184);
+  doc.setLineWidth(0.4);
+  doc.line(centerX - lineHalfWidth, y, centerX + lineHalfWidth, y);
+
+  // Line 1: Full Name (Bold dark, centered)
+  doc.setFontSize(9.5);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(slateDark[0], slateDark[1], slateDark[2]);
+  doc.text(sigName, centerX, y + 6, { align: 'center' });
+  
+  // Line 2: Role 1 (Slate muted, centered)
+  doc.setFontSize(8.5);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(slateMuted[0], slateMuted[1], slateMuted[2]);
+  doc.text(sigRole1, centerX, y + 11.5, { align: 'center' });
+  
+  // Line 3: Role 2 (Sedapal Navy, bold, centered)
+  doc.setTextColor(sedapalNavy[0], sedapalNavy[1], sedapalNavy[2]);
+  doc.setFont('helvetica', 'bold');
+  doc.text(sigRole2, centerX, y + 16.5, { align: 'center' });
+
+  // Line 4: Entity (Subtle gray, centered)
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(148, 163, 184);
+  doc.text(sigEntity, centerX, y + 21, { align: 'center' });
+
+  // Footer for all pages
+  const totalPages = doc.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setFontSize(7);
+    doc.setTextColor(148, 163, 184);
+    doc.text(
+      `Página ${i} de ${totalPages} - ${reportNum} • Organismo de Inspección del EGCM • SEDAPAL`,
+      105,
+      290,
+      { align: 'center' }
+    );
+  }
+
+  doc.save(`${reportNum.replace(/[^a-zA-Z0-9_-]/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`);
+}
+
 

@@ -108,7 +108,6 @@ export default function App() {
         setSelectedFormat={setSelectedFormat}
         totalResponsesCount={responses.length}
         onResetData={handleResetData}
-        onLoadSampleData={handleLoadSampleData}
         onOpenShareModal={() => setIsShareModalOpen(true)}
       />
 
@@ -164,7 +163,7 @@ export default function App() {
             <div className="flex items-center space-x-2">
               <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
               <span className="font-semibold text-slate-100">
-                Organismo de Inspección y Calidad • Acreditación ISO 17020
+                Organismo de Inspección del EGCM
               </span>
             </div>
           </div>

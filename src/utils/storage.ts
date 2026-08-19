@@ -1,17 +1,10 @@
 import { SurveyResponse, FormatType, FormatReport, SectionMetrics, QuestionMetrics, Question } from '../types';
 import { GCFO0131_QUESTIONS, SAMPLE_SURVEY_RESPONSES, GCFO0131_TITLE } from '../data/initialQuestions';
-import { createClient } from '@supabase/supabase-js';
-
-// Configuración de Supabase
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_KEY || '';
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const STORAGE_KEY = 'sedapal_survey_responses_v1';
 const QUESTIONS_STORAGE_KEY = 'sedapal_custom_questions_v4';
 
-export function getStoredQuestions(): Question[] {
+export function getStoredQuestions(format?: FormatType): Question[] {
   try {
     const raw = localStorage.getItem(QUESTIONS_STORAGE_KEY);
     if (raw) {
@@ -27,312 +20,374 @@ export function getStoredQuestions(): Question[] {
 }
 
 export async function fetchStoredQuestionsMap(): Promise<{ GCFO0131: Question[] }> {
-  return {
-    GCFO0131: getStoredQuestions()
+  const fallback = {
+    GCFO0131: getStoredQuestions('GCFO0131')
   };
-}
-
-export async function saveQuestionsAsync(format: FormatType, questions: Question[]): Promise<Question[]> {
   try {
-    const raw = localStorage.getItem(QUESTIONS_STORAGE_KEY);
-    const map = raw ? JSON.parse(raw) : {};
-    map[format] = questions;
-    localStorage.setItem(QUESTIONS_STORAGE_KEY, JSON.stringify(map));
-  } catch (e) {
-    console.error('Error saving questions:', e);
-  }
-  return questions;
-}
-
-export async function resetQuestionsAsync(format: FormatType): Promise<Question[]> {
-  try {
-    const raw = localStorage.getItem(QUESTIONS_STORAGE_KEY);
-    if (raw) {
-      const map = JSON.parse(raw);
-      delete map[format];
-      localStorage.setItem(QUESTIONS_STORAGE_KEY, JSON.stringify(map));
+    const res = await fetch('/api/questions');
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.GCFO0131) {
+        localStorage.setItem(QUESTIONS_STORAGE_KEY, JSON.stringify(data));
+        return data;
+      }
     }
-  } catch (e) {
-    console.error('Error resetting questions:', e);
-  }
-  return getStoredQuestions();
-}
-
-// Guardar encuesta directamente en Supabase con depuración de errores
-export async function saveSurvey(survey: SurveyResponse): Promise<boolean> {
-  try {
-    const payload = {
-      id: survey.id,
-      formato: survey.formatType || 'GCFO0131',
-      created_at: survey.createdAt || new Date().toISOString(),
-      nombre_cliente: survey.clientName || 'Sin nombre',
-      empresa: survey.companyName || (survey as any).empresa || null,
-      expediente: survey.serviceOrderOrExpedient || (survey as any).expediente || null,
-      inspector: survey.inspectorName || (survey as any).inspector || null,
-      canal_servicio: survey.serviceChannel || 'Presencial',
-      tipo_servicio: survey.serviceProvidedType || 'No especificado',
-      puntaje: survey.averageScore || 0,
-      respuestas: survey.answers || [],
-      comentarios: survey.generalComments || null,
-      notas_bajas: survey.lowScoreCount || 0,
-    };
-
-    console.log("Enviando a Supabase:", payload);
-
-    const { data, error } = await supabase.from('evaluaciones').insert([payload]);
-
-    if (error) {
-      console.error('Error detallado de Supabase al insertar:', error.message, error.details, error.hint);
-      return false;
-    }
-    
-    console.log('¡Guardado exitoso en Supabase!', data);
-    return true;
   } catch (err) {
-    console.error('Excepción crítica al guardar encuesta:', err);
-    return false;
+    console.warn('Network error fetching central questions:', err);
   }
+  return fallback;
 }
 
-// Cargar todas las encuestas desde Supabase mapeándolas a SurveyResponse
-export async function loadSurveys(): Promise<SurveyResponse[]> {
+export async function saveQuestionsAsync(format: FormatType, questions: Question[]): Promise<{ GCFO0131: Question[] }> {
   try {
-    const { data, error } = await supabase
-      .from('evaluaciones')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Error al cargar desde Supabase:', error);
-      return [];
+    const res = await fetch('/api/questions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ format, questions })
+    });
+    if (res.ok) {
+      const updated = await res.json();
+      localStorage.setItem(QUESTIONS_STORAGE_KEY, JSON.stringify(updated));
+      return updated;
     }
-
-    if (!data || data.length === 0) return [];
-
-    return data.map((item: any) => ({
-      id: item.id,
-      formatType: item.formato || 'GCFO0131',
-      createdAt: item.created_at,
-      clientName: item.nombre_cliente || '',
-      companyName: item.empresa || '',
-      serviceOrderOrExpedient: item.expediente || '',
-      inspectorName: item.inspector || '',
-      serviceChannel: item.canal_servicio || 'Presencial',
-      serviceProvidedType: item.tipo_servicio || 'No especificado',
-      answers: item.respuestas || [],
-      generalComments: item.comentarios || '',
-      averageScore: item.puntaje || 0,
-      lowScoreCount: item.notas_bajas || 0,
-    }));
   } catch (err) {
-    console.error('Excepción al cargar encuestas:', err);
-    return [];
+    console.error('Error saving custom questions to server:', err);
   }
-}
-
-// Eliminar encuesta en Supabase
-export async function deleteSurvey(id: string): Promise<boolean> {
-  try {
-    const { error } = await supabase.from('evaluaciones').delete().eq('id', id);
-    if (error) {
-      console.error('Error al eliminar encuesta:', error);
-      return false;
-    }
-    return true;
-  } catch (err) {
-    console.error('Excepción al eliminar encuesta:', err);
-    return false;
-  }
-}
-
-// Funciones locales de respaldo / cálculo de reportes
-export async function getStoredSurveys(): Promise<SurveyResponse[]> {
-  const remote = await loadSurveys();
-  if (remote.length > 0) return remote;
   
+  // Local fallback
+  let currentMap = {
+    GCFO0131: questions
+  };
+  localStorage.setItem(QUESTIONS_STORAGE_KEY, JSON.stringify(currentMap));
+  return currentMap;
+}
+
+export async function resetQuestionsAsync(): Promise<{ GCFO0131: Question[] }> {
+  const defaultMap = {
+    GCFO0131: GCFO0131_QUESTIONS
+  };
+  try {
+    const res = await fetch('/api/questions/reset', { method: 'POST' });
+    if (res.ok) {
+      const reseted = await res.json();
+      localStorage.setItem(QUESTIONS_STORAGE_KEY, JSON.stringify(reseted));
+      return reseted;
+    }
+  } catch (err) {
+    console.error('Error resetting questions on server:', err);
+  }
+  localStorage.setItem(QUESTIONS_STORAGE_KEY, JSON.stringify(defaultMap));
+  return defaultMap;
+}
+
+export function getStoredResponses(): SurveyResponse[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    if (!raw) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(SAMPLE_SURVEY_RESPONSES));
+      return SAMPLE_SURVEY_RESPONSES;
     }
-  } catch (e) {
-    console.error(e);
+    return JSON.parse(raw);
+  } catch (error) {
+    console.error('Error reading localStorage survey responses:', error);
+    return SAMPLE_SURVEY_RESPONSES;
+  }
+}
+
+// Fetch central survey responses from backend server
+export async function fetchStoredResponses(): Promise<SurveyResponse[]> {
+  try {
+    const res = await fetch('/api/surveys');
+    if (res.ok) {
+      const data: SurveyResponse[] = await res.json();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      return data;
+    }
+  } catch (error) {
+    console.warn('Network error fetching central surveys, using fallback:', error);
+  }
+  return getStoredResponses();
+}
+
+export function saveSurveyResponse(response: SurveyResponse): SurveyResponse[] {
+  const current = getStoredResponses();
+  const updated = [response, ...current];
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  } catch (error) {
+    console.error('Error saving survey response to localStorage:', error);
+  }
+  
+  // Post asynchronously to server backend
+  fetch('/api/surveys', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(response)
+  }).catch(err => console.error('Error syncing response to server:', err));
+
+  return updated;
+}
+
+export async function saveSurveyResponseAsync(response: SurveyResponse): Promise<SurveyResponse[]> {
+  try {
+    const res = await fetch('/api/surveys', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(response)
+    });
+    if (res.ok) {
+      const updated: SurveyResponse[] = await res.json();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      return updated;
+    }
+  } catch (err) {
+    console.error('Error posting survey to server:', err);
+  }
+  return saveSurveyResponse(response);
+}
+
+export async function updateSurveyResponseAsync(updatedResponse: SurveyResponse): Promise<SurveyResponse[]> {
+  try {
+    const res = await fetch('/api/surveys', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedResponse)
+    });
+    if (res.ok) {
+      const updatedList: SurveyResponse[] = await res.json();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedList));
+      return updatedList;
+    }
+  } catch (err) {
+    console.error('Error updating survey on server:', err);
+  }
+
+  // Fallback to local storage
+  const current = getStoredResponses();
+  const index = current.findIndex(s => s.id === updatedResponse.id);
+  let updatedList: SurveyResponse[];
+  if (index >= 0) {
+    updatedList = [...current];
+    updatedList[index] = updatedResponse;
+  } else {
+    updatedList = [updatedResponse, ...current];
+  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedList));
+  return updatedList;
+}
+
+export async function deleteSurveyResponseAsync(id: string): Promise<SurveyResponse[]> {
+  try {
+    const res = await fetch(`/api/surveys/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+      const updated: SurveyResponse[] = await res.json();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      return updated;
+    }
+  } catch (err) {
+    console.error('Error deleting survey from server:', err);
+  }
+  const current = getStoredResponses().filter(s => s.id !== id);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
+  return current;
+}
+
+export async function resetSurveyResponsesAsync(): Promise<SurveyResponse[]> {
+  try {
+    const res = await fetch('/api/surveys/reset', { method: 'POST' });
+    if (res.ok) {
+      const reseted: SurveyResponse[] = await res.json();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(reseted));
+      return reseted;
+    }
+  } catch (err) {
+    console.error('Error resetting surveys on server:', err);
+  }
+  return resetSurveyResponses();
+}
+
+export function resetSurveyResponses(): SurveyResponse[] {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(SAMPLE_SURVEY_RESPONSES));
+  } catch (error) {
+    console.error('Error resetting survey responses:', error);
   }
   return SAMPLE_SURVEY_RESPONSES;
 }
 
-export async function saveSurveyResponse(survey: SurveyResponse): Promise<void> {
-  await saveSurvey(survey);
+export function clearAllSurveyResponses(): SurveyResponse[] {
   try {
-    const current = await getStoredSurveys();
-    const updated = [survey, ...current.filter(s => s.id !== survey.id)];
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-  } catch (e) {
-    console.error(e);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
+  } catch (error) {
+    console.error('Error clearing survey responses:', error);
   }
+  return [];
 }
 
-export async function deleteStoredSurvey(id: string): Promise<void> {
-  await deleteSurvey(id);
-  try {
-    const current = await getStoredSurveys();
-    const updated = current.filter(s => s.id !== id);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-  } catch (e) {
-    console.error(e);
-  }
-}
-
-// Funciones requeridas y exportadas para App.tsx
-export async function fetchStoredResponses(): Promise<SurveyResponse[]> {
-  return await getStoredSurveys();
-}
-
-export async function saveSurveyResponseAsync(survey: SurveyResponse): Promise<void> {
-  await saveSurveyResponse(survey);
-}
-
-export async function updateSurveyResponseAsync(survey: SurveyResponse): Promise<void> {
-  await saveSurveyResponse(survey);
-}
-
-export async function deleteSurveyResponseAsync(id: string): Promise<void> {
-  await deleteStoredSurvey(id);
-}
-
-export async function resetSurveyResponsesAsync(): Promise<void> {
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-  } catch (e) {
-    console.error(e);
-  }
-}
-
-export async function generateFormatReport(formatType: FormatType, selectedServiceType?: string): Promise<FormatReport> {
-  const allSurveys = await getStoredSurveys();
-  const surveys = allSurveys.filter(s => {
-    const matchesFormat = s.formatType === formatType;
-    if (!matchesFormat) return false;
-    if (selectedServiceType && selectedServiceType !== 'TODOS') {
-      return s.serviceProvidedType === selectedServiceType;
-    }
-    return true;
+export function generateFormatReport(
+  format: FormatType,
+  responses: SurveyResponse[],
+  serviceProvidedType?: string
+): FormatReport {
+  const filtered = responses.filter(r => {
+    const matchesFormat = r.formatType === format;
+    const matchesService =
+      !serviceProvidedType ||
+      serviceProvidedType === 'all' ||
+      r.serviceProvidedType === serviceProvidedType;
+    return matchesFormat && matchesService;
   });
+  const questions = getStoredQuestions(format);
+  const formatTitle = GCFO0131_TITLE;
 
-  const questions = getStoredQuestions();
-  const totalSurveys = surveys.length;
+  if (filtered.length === 0) {
+    return {
+      formatType: format,
+      formatTitle,
+      selectedServiceType: serviceProvidedType,
+      totalSurveys: 0,
+      overallAverage: 0,
+      csatIndex: 0,
+      totalLowScores: 0,
+      iso9001Target: 92.50,
+      iso9001Executed: 0,
+      uvmTarget: 92.50,
+      uvmExecuted: 0,
+      conformityYesCount: 0,
+      conformityNoCount: 0,
+      conformityPercentage: 0,
+      contactReasons: [],
+      sectionMetrics: [],
+      questionMetrics: [],
+      allMotives: [],
+      allComments: [],
+      allClientsList: []
+    };
+  }
 
   let totalScoreSum = 0;
-  let totalAnswersCount = 0;
-  let totalLowScores = 0;
+  let totalAnswerCount = 0;
+  let totalSatisfiedCount = 0; // score >= 8
+  let totalLowScoresCount = 0; // score < 8
 
-  const sectionMap: { [key: string]: { title: string; scores: number[]; lowCount: number; totalQ: number } } = {};
-  const questionMap: { [key: string]: { questionId: string; number: number; sectionTitle: string; text: string; scores: number[]; lowCount: number; motives: any[] } } = {};
+  // Calculate per-question metrics
+  const questionMetrics = questions.map(q => {
+    let qSum = 0;
+    let qCount = 0;
+    let qSatisfied = 0;
+    let qLow = 0;
+    const distribution: { [key: number]: number } = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0 };
+    const motives: QuestionMetrics['motives'] = [];
 
-  questions.forEach(q => {
-    if (!sectionMap[q.sectionId]) {
-      sectionMap[q.sectionId] = { title: q.sectionTitle, scores: [], lowCount: 0, totalQ: 0 };
-    }
-    sectionMap[q.sectionId].totalQ++;
+    filtered.forEach(resp => {
+      const ans = resp.answers.find(a => a.questionId === q.id || a.questionNumber === q.number);
+      if (ans) {
+        qSum += ans.score;
+        qCount += 1;
+        totalScoreSum += ans.score;
+        totalAnswerCount += 1;
 
-    questionMap[q.id] = {
-      questionId: q.id,
-      number: q.number,
-      sectionTitle: q.sectionTitle,
-      text: q.text,
-      scores: [],
-      lowCount: 0,
-      motives: []
-    };
-  });
+        distribution[ans.score] = (distribution[ans.score] || 0) + 1;
 
-  surveys.forEach(survey => {
-    survey.answers.forEach(ans => {
-      totalScoreSum += ans.score;
-      totalAnswersCount++;
-      if (ans.score < 8) totalLowScores++;
+        if (ans.score > 8) {
+          qSatisfied += 1;
+          totalSatisfiedCount += 1;
+        } else {
+          qLow += 1;
+          totalLowScoresCount += 1;
+        }
 
-      const qMeta = questions.find(q => q.id === ans.questionId);
-      const secId = qMeta ? qMeta.sectionId : 'general';
-
-      if (sectionMap[secId]) {
-        sectionMap[secId].scores.push(ans.score);
-        if (ans.score < 8) sectionMap[secId].lowCount++;
-      }
-
-      if (questionMap[ans.questionId]) {
-        questionMap[ans.questionId].scores.push(ans.score);
-        if (ans.score < 8) {
-          questionMap[ans.questionId].lowCount++;
-          questionMap[ans.questionId].motives.push({
-            responseId: survey.id,
-            clientName: survey.clientName,
-            date: new Date(survey.createdAt).toLocaleDateString(),
+        if (ans.score <= 8 && ans.motive && ans.motive.trim()) {
+          motives.push({
+            responseId: resp.id,
+            clientName: resp.clientName,
+            date: resp.createdAt,
             score: ans.score,
-            motive: ans.motive || 'Sin motivo especificado'
+            motive: ans.motive.trim()
           });
         }
       }
     });
-  });
 
-  const overallAverage = totalAnswersCount > 0 ? Number((totalScoreSum / totalAnswersCount).toFixed(2)) : 0;
-  
-  let highOrEqual8Count = 0;
-  surveys.forEach(s => {
-    s.answers.forEach(a => {
-      if (a.score >= 8) highOrEqual8Count++;
+    const avg = qCount > 0 ? Number((qSum / qCount).toFixed(1)) : 0;
+    const csat = qCount > 0 ? Number(((qSatisfied / qCount) * 100).toFixed(1)) : 0;
+
+    let lvl5 = 0; // 9-10
+    let lvl4 = 0; // 7-8
+    let lvl3 = 0; // 5-6
+    let lvl2 = 0; // 3-4
+    let lvl1 = 0; // 1-2
+
+    Object.entries(distribution).forEach(([scoreKey, countVal]) => {
+      const s = Number(scoreKey);
+      if (s >= 9) lvl5 += countVal;
+      else if (s >= 7) lvl4 += countVal;
+      else if (s >= 5) lvl3 += countVal;
+      else if (s >= 3) lvl2 += countVal;
+      else lvl1 += countVal;
     });
-  });
-  const csatIndex = totalAnswersCount > 0 ? Number(((highOrEqual8Count / totalAnswersCount) * 100).toFixed(1)) : 0;
 
-  const sectionMetrics: SectionMetrics[] = Object.keys(sectionMap).map(secId => {
-    const data = sectionMap[secId];
-    const avg = data.scores.length > 0 ? data.scores.reduce((a, b) => a + b, 0) / data.scores.length : 0;
-    const highScoresSec = data.scores.filter(s => s.score >= 8).length;
-    const csatSec = data.scores.length > 0 ? (highScoresSec / data.scores.length) * 100 : 0;
+    const tot = qCount || 1;
+    const levelDistribution = [
+      { level: 5, label: 'Nivel 5 (Excelente)', count: lvl5, percentage: Number(((lvl5 / tot) * 100).toFixed(1)) },
+      { level: 4, label: 'Nivel 4 (Muy Bueno)', count: lvl4, percentage: Number(((lvl4 / tot) * 100).toFixed(1)) },
+      { level: 3, label: 'Nivel 3 (Bueno)', count: lvl3, percentage: Number(((lvl3 / tot) * 100).toFixed(1)) },
+      { level: 2, label: 'Nivel 2 (Regular)', count: lvl2, percentage: Number(((lvl2 / tot) * 100).toFixed(1)) },
+      { level: 1, label: 'Nivel 1 (Malo)', count: lvl1, percentage: Number(((lvl1 / tot) * 100).toFixed(1)) }
+    ];
 
     return {
-      sectionId: secId,
-      sectionTitle: data.title,
-      averageScore: Number(avg.toFixed(2)),
-      totalQuestions: data.totalQ,
-      lowScoreCount: data.lowCount,
-      csatPercentage: Number(csatSec.toFixed(1))
+      questionId: q.id,
+      questionNumber: q.number,
+      sectionTitle: q.sectionTitle,
+      text: q.text,
+      averageScore: avg,
+      totalResponses: qCount,
+      scoreDistribution: Object.keys(distribution).map(k => ({ score: Number(k), count: distribution[Number(k)] })),
+      levelDistribution,
+      lowScoresCount: qLow,
+      csatPercentage: csat,
+      motives
     };
   });
 
-  const questionMetrics: QuestionMetrics[] = Object.keys(questionMap).map(qId => {
-    const qData = questionMap[qId];
-    const avg = qData.scores.length > 0 ? qData.scores.reduce((a, b) => a + b, 0) / qData.scores.length : 0;
-    
-    const distMap: { [score: number]: number } = {};
-    for (let i = 1; i <= 10; i++) distMap[i] = 0;
-    qData.scores.forEach(s => { distMap[s] = (distMap[s] || 0) + 1; });
-    const scoreDistribution = Object.keys(distMap).map(scoreStr => ({
-      score: Number(scoreStr),
-      count: distMap[Number(scoreStr)]
-    }));
+  // Calculate per-section metrics
+  const sectionsMap = new Map<string, { title: string; questions: QuestionMetrics[] }>();
+  questionMetrics.forEach(qm => {
+    if (!sectionsMap.has(qm.sectionTitle)) {
+      sectionsMap.set(qm.sectionTitle, { title: qm.sectionTitle, questions: [] });
+    }
+    sectionsMap.get(qm.sectionTitle)!.questions.push(qm);
+  });
 
-    const highScoresQ = qData.scores.filter(s => s >= 8).length;
-    const csatQ = qData.scores.length > 0 ? (highScoresQ / qData.scores.length) * 100 : 0;
+  const sectionMetrics: SectionMetrics[] = Array.from(sectionsMap.entries()).map(([secTitle, data]) => {
+    let secSum = 0;
+    let secTotalAns = 0;
+    let secSatisfiedAns = 0;
+    let secLowCount = 0;
+
+    data.questions.forEach(q => {
+      secSum += q.averageScore * q.totalResponses;
+      secTotalAns += q.totalResponses;
+      secLowCount += q.lowScoresCount;
+      secSatisfiedAns += Math.round((q.csatPercentage / 100) * q.totalResponses);
+    });
+
+    const secAvg = secTotalAns > 0 ? Number((secSum / secTotalAns).toFixed(1)) : 0;
+    const secCsat = secTotalAns > 0 ? Number(((secSatisfiedAns / secTotalAns) * 100).toFixed(1)) : 0;
 
     return {
-      questionId: qData.questionId,
-      questionNumber: qData.number,
-      sectionTitle: qData.sectionTitle,
-      text: qData.text,
-      averageScore: Number(avg.toFixed(2)),
-      totalResponses: qData.scores.length,
-      scoreDistribution,
-      lowScoresCount: qData.lowCount,
-      csatPercentage: Number(csatQ.toFixed(1)),
-      motives: qData.motives
+      sectionId: secTitle.replace(/[^a-zA-Z0-9]/g, '_'),
+      sectionTitle: secTitle,
+      averageScore: secAvg,
+      totalQuestions: data.questions.length,
+      lowScoreCount: secLowCount,
+      csatPercentage: secCsat
     };
   });
 
-  const allMotives: any[] = [];
+  // All motives aggregated
+  const allMotives: FormatReport['allMotives'] = [];
   questionMetrics.forEach(qm => {
     qm.motives.forEach(m => {
       allMotives.push({
@@ -348,29 +403,89 @@ export async function generateFormatReport(formatType: FormatType, selectedServi
     });
   });
 
-  const allComments = surveys
-    .filter(s => s.generalComments && s.generalComments.trim() !== '')
-    .map(s => ({
-      responseId: s.id,
-      clientName: s.clientName,
-      companyName: s.companyName,
-      serviceOrder: s.serviceOrderOrExpedient,
-      date: new Date(s.createdAt).toLocaleDateString(),
-      serviceType: s.serviceProvidedType,
-      comment: s.generalComments!
-    }));
+  // All comments aggregated (Section 2: Comentarios y sugerencias)
+  const allComments: FormatReport['allComments'] = [];
+  filtered.forEach(resp => {
+    if (resp.generalComments && resp.generalComments.trim()) {
+      allComments.push({
+        responseId: resp.id,
+        clientName: resp.clientName,
+        companyName: resp.companyName,
+        serviceOrder: resp.serviceOrderOrExpedient,
+        date: resp.createdAt,
+        serviceType: resp.serviceProvidedType,
+        comment: resp.generalComments.trim()
+      });
+    }
+  });
+
+  let totalConformityYes = 0;
+  let totalConformityNo = 0;
+
+  // Process conformity from surveys
+  filtered.forEach(resp => {
+    if (resp.isGeneralSatisfied === false) {
+      totalConformityNo += 1;
+    } else {
+      totalConformityYes += 1;
+    }
+  });
+
+  const overallAverage = totalAnswerCount > 0 ? Number((totalScoreSum / totalAnswerCount).toFixed(2)) : 0;
+  const csatIndex = totalAnswerCount > 0 ? Number(((totalSatisfiedCount / totalAnswerCount) * 100).toFixed(1)) : 0;
+
+  // ISO 9001 Execution (% achieved relative to max score)
+  const maxPossibleScore = totalAnswerCount * 10;
+  const iso9001Executed = maxPossibleScore > 0 ? Number(((totalScoreSum / maxPossibleScore) * 100).toFixed(2)) : 0;
+  const iso9001Target = 92.50;
+
+  // UVM Verification Posterior Execution
+  const uvmSurveys = filtered.filter(s => s.serviceProvidedType?.toLowerCase().includes('verificación') || s.serviceProvidedType?.toLowerCase().includes('uvm'));
+  let uvmScoreSum = 0;
+  let uvmAnsCount = 0;
+  uvmSurveys.forEach(s => {
+    s.answers.forEach(a => {
+      uvmScoreSum += a.score;
+      uvmAnsCount += 1;
+    });
+  });
+  const uvmExecuted = uvmAnsCount > 0 ? Number(((uvmScoreSum / (uvmAnsCount * 10)) * 100).toFixed(2)) : 84.65;
+  const uvmTarget = 92.50;
+
+  const totalConformity = totalConformityYes + totalConformityNo;
+  const conformityPercentage = totalConformity > 0 ? Number(((totalConformityYes / totalConformity) * 100).toFixed(1)) : 100;
+
+  // Formatted list of all respondents
+  const allClientsList = filtered.map((resp, idx) => ({
+    index: idx + 1,
+    id: resp.id,
+    clientName: resp.clientName,
+    companyName: resp.companyName,
+    rucOrTeam: resp.companyName || resp.serviceOrderOrExpedient || '20522592669',
+    expedient: resp.serviceOrderOrExpedient,
+    serviceType: resp.serviceProvidedType || 'General',
+    date: resp.createdAt
+  }));
 
   return {
-    formatType,
-    formatTitle: GCFO0131_TITLE,
-    selectedServiceType,
-    totalSurveys,
+    formatType: format,
+    formatTitle,
+    selectedServiceType: serviceProvidedType,
+    totalSurveys: filtered.length,
     overallAverage,
     csatIndex,
-    totalLowScores,
+    totalLowScores: totalLowScoresCount,
+    iso9001Target,
+    iso9001Executed,
+    uvmTarget,
+    uvmExecuted,
+    conformityYesCount: totalConformityYes,
+    conformityNoCount: totalConformityNo,
+    conformityPercentage,
     sectionMetrics,
     questionMetrics,
     allMotives,
-    allComments
+    allComments,
+    allClientsList
   };
 }

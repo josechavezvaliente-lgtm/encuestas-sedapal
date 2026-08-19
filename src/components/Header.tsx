@@ -10,7 +10,6 @@ interface HeaderProps {
   setSelectedFormat: (format: FormatType) => void;
   totalResponsesCount: number;
   onResetData: () => void;
-  onLoadSampleData: () => void;
   onOpenShareModal: () => void;
 }
 
@@ -21,7 +20,6 @@ export const Header: React.FC<HeaderProps> = ({
   setSelectedFormat,
   totalResponsesCount,
   onResetData,
-  onLoadSampleData,
   onOpenShareModal
 }) => {
   return (
@@ -37,14 +35,11 @@ export const Header: React.FC<HeaderProps> = ({
             <div>
               <div className="flex items-center space-x-2">
                 <span className="font-black text-sm text-white tracking-wide uppercase">
-                  Organismo de Inspección
-                </span>
-                <span className="bg-[#0099DD]/30 text-sky-200 text-[10px] px-2 py-0.5 rounded-full font-bold border border-sky-400/40">
-                  ISO 17020
+                  Organismo de Inspección del EGCM
                 </span>
               </div>
               <p className="text-[11px] text-sky-200/90 font-medium">
-                Gestión de Calidad • Evaluación de Satisfacción GCFO0131
+                Organismo de Inspección del EGCM
               </p>
             </div>
           </div>
@@ -132,3 +127,4 @@ export const Header: React.FC<HeaderProps> = ({
     </header>
   );
 };
+
