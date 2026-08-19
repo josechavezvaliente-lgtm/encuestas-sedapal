@@ -1,5 +1,6 @@
 import { SurveyResponse, FormatType, FormatReport, SectionMetrics, QuestionMetrics, Question } from '../types';
 import { GCFO0131_QUESTIONS, SAMPLE_SURVEY_RESPONSES, GCFO0131_TITLE } from '../data/initialQuestions';
+import { supabase } from './supabaseClient';
 
 const STORAGE_KEY = 'sedapal_survey_responses_v1';
 const QUESTIONS_STORAGE_KEY = 'sedapal_custom_questions_v4';
@@ -20,62 +21,17 @@ export function getStoredQuestions(format?: FormatType): Question[] {
 }
 
 export async function fetchStoredQuestionsMap(): Promise<{ GCFO0131: Question[] }> {
-  const fallback = {
-    GCFO0131: getStoredQuestions('GCFO0131')
-  };
-  try {
-    const res = await fetch('/api/questions');
-    if (res.ok) {
-      const data = await res.json();
-      if (data && data.GCFO0131) {
-        localStorage.setItem(QUESTIONS_STORAGE_KEY, JSON.stringify(data));
-        return data;
-      }
-    }
-  } catch (err) {
-    console.warn('Network error fetching central questions:', err);
-  }
-  return fallback;
+  return { GCFO0131: getStoredQuestions('GCFO0131') };
 }
 
 export async function saveQuestionsAsync(format: FormatType, questions: Question[]): Promise<{ GCFO0131: Question[] }> {
-  try {
-    const res = await fetch('/api/questions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ format, questions })
-    });
-    if (res.ok) {
-      const updated = await res.json();
-      localStorage.setItem(QUESTIONS_STORAGE_KEY, JSON.stringify(updated));
-      return updated;
-    }
-  } catch (err) {
-    console.error('Error saving custom questions to server:', err);
-  }
-  
-  // Local fallback
-  let currentMap = {
-    GCFO0131: questions
-  };
+  const currentMap = { GCFO0131: questions };
   localStorage.setItem(QUESTIONS_STORAGE_KEY, JSON.stringify(currentMap));
   return currentMap;
 }
 
 export async function resetQuestionsAsync(): Promise<{ GCFO0131: Question[] }> {
-  const defaultMap = {
-    GCFO0131: GCFO0131_QUESTIONS
-  };
-  try {
-    const res = await fetch('/api/questions/reset', { method: 'POST' });
-    if (res.ok) {
-      const reseted = await res.json();
-      localStorage.setItem(QUESTIONS_STORAGE_KEY, JSON.stringify(reseted));
-      return reseted;
-    }
-  } catch (err) {
-    console.error('Error resetting questions on server:', err);
-  }
+  const defaultMap = { GCFO0131: GCFO0131_QUESTIONS };
   localStorage.setItem(QUESTIONS_STORAGE_KEY, JSON.stringify(defaultMap));
   return defaultMap;
 }
@@ -94,75 +50,118 @@ export function getStoredResponses(): SurveyResponse[] {
   }
 }
 
-// Fetch central survey responses from backend server
+// Fetch central survey responses directly from Supabase
 export async function fetchStoredResponses(): Promise<SurveyResponse[]> {
   try {
-    const res = await fetch('/api/surveys');
-    if (res.ok) {
-      const data: SurveyResponse[] = await res.json();
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-      return data;
+    const { data, error } = await supabase
+      .from('encuestas')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching surveys from Supabase:', error);
+      return getStoredResponses();
+    }
+
+    if (data && data.length > 0) {
+      // Mapea los registros de Supabase al formato que usa tu aplicación
+      const formatted: SurveyResponse[] = data.map((item: any) => ({
+        id: item.id,
+        formatType: item.formato_tipo || 'GCFO0131',
+        serviceProvidedType: item.servicio_tipo,
+        clientName: item.razon_social,
+        companyName: item.empresa,
+        serviceOrderOrExpedient: item.expediente,
+        answers: item.respuestas || [],
+        generalComments: item.comentarios,
+        isGeneralSatisfied: item.conformidad ?? true,
+        createdAt: item.created_at
+      }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(formatted));
+      return formatted;
     }
   } catch (error) {
-    console.warn('Network error fetching central surveys, using fallback:', error);
+    console.warn('Network error fetching from Supabase, using local fallback:', error);
   }
   return getStoredResponses();
+}
+
+export async function saveSurveyResponseAsync(response: SurveyResponse): Promise<SurveyResponse[]> {
+  try {
+    // Guarda directamente en Supabase
+    const { error } = await supabase.from('encuestas').insert([
+      {
+        id: response.id,
+        formato_tipo: response.formatType,
+        servicio_tipo: response.serviceProvidedType,
+        razon_social: response.clientName,
+        empresa: response.companyName,
+        expediente: response.serviceOrderOrExpedient,
+        respuestas: response.answers,
+        comentarios: response.generalComments,
+        conformidad: response.isGeneralSatisfied,
+        created_at: response.createdAt
+      }
+    ]);
+
+    if (error) {
+      console.error('Error inserting survey into Supabase:', error);
+    }
+  } catch (err) {
+    console.error('Exception posting survey to Supabase:', err);
+  }
+
+  // Actualiza de manera local y retorna la lista actualizada
+  const current = getStoredResponses();
+  const updated = [response, ...current];
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  return updated;
 }
 
 export function saveSurveyResponse(response: SurveyResponse): SurveyResponse[] {
   const current = getStoredResponses();
   const updated = [response, ...current];
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-  } catch (error) {
-    console.error('Error saving survey response to localStorage:', error);
-  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   
-  // Post asynchronously to server backend
-  fetch('/api/surveys', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(response)
-  }).catch(err => console.error('Error syncing response to server:', err));
+  // Ejecuta el guardado en segundo plano hacia Supabase
+  supabase.from('encuestas').insert([
+    {
+      id: response.id,
+      formato_tipo: response.formatType,
+      servicio_tipo: response.serviceProvidedType,
+      razon_social: response.clientName,
+      empresa: response.companyName,
+      expediente: response.serviceOrderOrExpedient,
+      respuestas: response.answers,
+      comentarios: response.generalComments,
+      conformidad: response.isGeneralSatisfied,
+      created_at: response.createdAt
+    }
+  ]).then(({ error }) => {
+    if (error) console.error('Error background sync to Supabase:', error);
+  });
 
   return updated;
 }
 
-export async function saveSurveyResponseAsync(response: SurveyResponse): Promise<SurveyResponse[]> {
-  try {
-    const res = await fetch('/api/surveys', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(response)
-    });
-    if (res.ok) {
-      const updated: SurveyResponse[] = await res.json();
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      return updated;
-    }
-  } catch (err) {
-    console.error('Error posting survey to server:', err);
-  }
-  return saveSurveyResponse(response);
-}
-
 export async function updateSurveyResponseAsync(updatedResponse: SurveyResponse): Promise<SurveyResponse[]> {
   try {
-    const res = await fetch('/api/surveys', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updatedResponse)
-    });
-    if (res.ok) {
-      const updatedList: SurveyResponse[] = await res.json();
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedList));
-      return updatedList;
-    }
+    await supabase
+      .from('encuestas')
+      .update({
+        servicio_tipo: updatedResponse.serviceProvidedType,
+        razon_social: updatedResponse.clientName,
+        empresa: updatedResponse.companyName,
+        expediente: updatedResponse.serviceOrderOrExpedient,
+        respuestas: updatedResponse.answers,
+        comentarios: updatedResponse.generalComments,
+        conformidad: updatedResponse.isGeneralSatisfied
+      })
+      .eq('id', updatedResponse.id);
   } catch (err) {
-    console.error('Error updating survey on server:', err);
+    console.error('Error updating survey on Supabase:', err);
   }
 
-  // Fallback to local storage
   const current = getStoredResponses();
   const index = current.findIndex(s => s.id === updatedResponse.id);
   let updatedList: SurveyResponse[];
@@ -178,49 +177,27 @@ export async function updateSurveyResponseAsync(updatedResponse: SurveyResponse)
 
 export async function deleteSurveyResponseAsync(id: string): Promise<SurveyResponse[]> {
   try {
-    const res = await fetch(`/api/surveys/${id}`, { method: 'DELETE' });
-    if (res.ok) {
-      const updated: SurveyResponse[] = await res.json();
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      return updated;
-    }
+    await supabase.from('encuestas').delete().eq('id', id);
   } catch (err) {
-    console.error('Error deleting survey from server:', err);
+    console.error('Error deleting survey from Supabase:', err);
   }
+
   const current = getStoredResponses().filter(s => s.id !== id);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
   return current;
 }
 
 export async function resetSurveyResponsesAsync(): Promise<SurveyResponse[]> {
-  try {
-    const res = await fetch('/api/surveys/reset', { method: 'POST' });
-    if (res.ok) {
-      const reseted: SurveyResponse[] = await res.json();
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(reseted));
-      return reseted;
-    }
-  } catch (err) {
-    console.error('Error resetting surveys on server:', err);
-  }
   return resetSurveyResponses();
 }
 
 export function resetSurveyResponses(): SurveyResponse[] {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(SAMPLE_SURVEY_RESPONSES));
-  } catch (error) {
-    console.error('Error resetting survey responses:', error);
-  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(SAMPLE_SURVEY_RESPONSES));
   return SAMPLE_SURVEY_RESPONSES;
 }
 
 export function clearAllSurveyResponses(): SurveyResponse[] {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
-  } catch (error) {
-    console.error('Error clearing survey responses:', error);
-  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
   return [];
 }
 
@@ -267,10 +244,9 @@ export function generateFormatReport(
 
   let totalScoreSum = 0;
   let totalAnswerCount = 0;
-  let totalSatisfiedCount = 0; // score >= 8
-  let totalLowScoresCount = 0; // score < 8
+  let totalSatisfiedCount = 0;
+  let totalLowScoresCount = 0;
 
-  // Calculate per-question metrics
   const questionMetrics = questions.map(q => {
     let qSum = 0;
     let qCount = 0;
@@ -280,7 +256,7 @@ export function generateFormatReport(
     const motives: QuestionMetrics['motives'] = [];
 
     filtered.forEach(resp => {
-      const ans = resp.answers.find(a => a.questionId === q.id || a.questionNumber === q.number);
+      const ans = resp.answers?.find(a => a.questionId === q.id || a.questionNumber === q.number);
       if (ans) {
         qSum += ans.score;
         qCount += 1;
@@ -312,12 +288,7 @@ export function generateFormatReport(
     const avg = qCount > 0 ? Number((qSum / qCount).toFixed(1)) : 0;
     const csat = qCount > 0 ? Number(((qSatisfied / qCount) * 100).toFixed(1)) : 0;
 
-    let lvl5 = 0; // 9-10
-    let lvl4 = 0; // 7-8
-    let lvl3 = 0; // 5-6
-    let lvl2 = 0; // 3-4
-    let lvl1 = 0; // 1-2
-
+    let lvl5 = 0, lvl4 = 0, lvl3 = 0, lvl2 = 0, lvl1 = 0;
     Object.entries(distribution).forEach(([scoreKey, countVal]) => {
       const s = Number(scoreKey);
       if (s >= 9) lvl5 += countVal;
@@ -351,7 +322,6 @@ export function generateFormatReport(
     };
   });
 
-  // Calculate per-section metrics
   const sectionsMap = new Map<string, { title: string; questions: QuestionMetrics[] }>();
   questionMetrics.forEach(qm => {
     if (!sectionsMap.has(qm.sectionTitle)) {
@@ -386,7 +356,6 @@ export function generateFormatReport(
     };
   });
 
-  // All motives aggregated
   const allMotives: FormatReport['allMotives'] = [];
   questionMetrics.forEach(qm => {
     qm.motives.forEach(m => {
@@ -403,7 +372,6 @@ export function generateFormatReport(
     });
   });
 
-  // All comments aggregated (Section 2: Comentarios y sugerencias)
   const allComments: FormatReport['allComments'] = [];
   filtered.forEach(resp => {
     if (resp.generalComments && resp.generalComments.trim()) {
@@ -422,7 +390,6 @@ export function generateFormatReport(
   let totalConformityYes = 0;
   let totalConformityNo = 0;
 
-  // Process conformity from surveys
   filtered.forEach(resp => {
     if (resp.isGeneralSatisfied === false) {
       totalConformityNo += 1;
@@ -434,17 +401,15 @@ export function generateFormatReport(
   const overallAverage = totalAnswerCount > 0 ? Number((totalScoreSum / totalAnswerCount).toFixed(2)) : 0;
   const csatIndex = totalAnswerCount > 0 ? Number(((totalSatisfiedCount / totalAnswerCount) * 100).toFixed(1)) : 0;
 
-  // ISO 9001 Execution (% achieved relative to max score)
   const maxPossibleScore = totalAnswerCount * 10;
   const iso9001Executed = maxPossibleScore > 0 ? Number(((totalScoreSum / maxPossibleScore) * 100).toFixed(2)) : 0;
   const iso9001Target = 92.50;
 
-  // UVM Verification Posterior Execution
   const uvmSurveys = filtered.filter(s => s.serviceProvidedType?.toLowerCase().includes('verificación') || s.serviceProvidedType?.toLowerCase().includes('uvm'));
   let uvmScoreSum = 0;
   let uvmAnsCount = 0;
   uvmSurveys.forEach(s => {
-    s.answers.forEach(a => {
+    s.answers?.forEach(a => {
       uvmScoreSum += a.score;
       uvmAnsCount += 1;
     });
@@ -455,7 +420,6 @@ export function generateFormatReport(
   const totalConformity = totalConformityYes + totalConformityNo;
   const conformityPercentage = totalConformity > 0 ? Number(((totalConformityYes / totalConformity) * 100).toFixed(1)) : 100;
 
-  // Formatted list of all respondents
   const allClientsList = filtered.map((resp, idx) => ({
     index: idx + 1,
     id: resp.id,
