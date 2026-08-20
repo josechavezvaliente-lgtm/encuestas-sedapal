@@ -897,7 +897,7 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({
             className="bg-[#005DAA] hover:bg-[#004880] text-white font-extrabold text-xs px-8 py-3 rounded-xl shadow-md hover:shadow-lg transition flex items-center space-x-2"
           >
             <Send className="w-4 h-4" />
-            <span>Enviar Evaluación ({format})</span>
+            <span>Enviar Evaluación </span>
           </button>
         </div>
 

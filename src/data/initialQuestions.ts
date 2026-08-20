@@ -1,6 +1,6 @@
 import { Question, FormatType, SurveyResponse } from '../types';
 
-export const GCFO0131_TITLE = "Formato GCFO0131: Encuesta de Satisfacción respecto al Organismo de Inspección del EGCM";
+export const GCFO0131_TITLE = "Formato GCFO0131: Encuesta de Satisfacción respecto al Organismo de Inspección de Medidores de Agua Potable Versión 06";
 
 export const GCFO0131_QUESTIONS: Question[] = [
   {
