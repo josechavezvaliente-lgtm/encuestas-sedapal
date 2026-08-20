@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Search, Trash2, Eye, Pencil, FileText, Calendar, User, Building, Hash, AlertCircle, CheckCircle2, X, Filter, Download, FileSpreadsheet, MessageSquare } from 'lucide-react';
+import { Search, Trash2, Eye, Pencil, FileText, Calendar, User, Building, Hash, AlertCircle, CheckCircle2, X, Filter, Download, FileSpreadsheet, MessageSquare, Shield, ShieldCheck, LogOut } from 'lucide-react';
 import { SurveyResponse, FormatType } from '../types';
 import { getQuestionsForFormat } from '../data/initialQuestions';
 import { exportSingleSurveyToPDF, exportSingleSurveyToExcel, exportAllSurveysToExcel } from '../utils/export';
 import { SedapalLogo } from './SedapalLogo';
 import { EditSurveyModal } from './EditSurveyModal';
+import { AdminLoginModal } from './AdminLoginModal';
 
 interface SurveyHistoryProps {
   responses: SurveyResponse[];
@@ -12,6 +13,11 @@ interface SurveyHistoryProps {
   onUpdateResponse?: (updated: SurveyResponse) => Promise<void> | void;
   selectedFormatFilter: FormatType | 'ALL';
   setSelectedFormatFilter: (fmt: FormatType | 'ALL') => void;
+  isAdmin?: boolean;
+  adminUser?: string;
+  onOpenAdminModal?: () => void;
+  onLogoutAdmin?: () => void;
+  onAdminLoginSuccess?: (email: string) => void;
 }
 
 export const SurveyHistory: React.FC<SurveyHistoryProps> = ({
@@ -19,12 +25,50 @@ export const SurveyHistory: React.FC<SurveyHistoryProps> = ({
   onDeleteResponse,
   onUpdateResponse,
   selectedFormatFilter,
-  setSelectedFormatFilter
+  setSelectedFormatFilter,
+  isAdmin: propIsAdmin,
+  adminUser: propAdminUser,
+  onOpenAdminModal,
+  onLogoutAdmin,
+  onAdminLoginSuccess
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [serviceFilter, setServiceFilter] = useState<string>('ALL');
   const [selectedResponse, setSelectedResponse] = useState<SurveyResponse | null>(null);
   const [editingResponse, setEditingResponse] = useState<SurveyResponse | null>(null);
+
+  // Local fallback admin state
+  const [localIsAdmin, setLocalIsAdmin] = useState<boolean>(() => {
+    return sessionStorage.getItem('sedapal_admin_auth') === 'true';
+  });
+  const [localAdminUser, setLocalAdminUser] = useState<string>(() => {
+    return sessionStorage.getItem('sedapal_admin_user') || '';
+  });
+  const [isLocalAdminModalOpen, setIsLocalAdminModalOpen] = useState(false);
+
+  const isAdmin = propIsAdmin !== undefined ? propIsAdmin : localIsAdmin;
+  const adminUser = propAdminUser || localAdminUser;
+
+  const handleAdminSuccess = (email: string) => {
+    setLocalIsAdmin(true);
+    setLocalAdminUser(email);
+    sessionStorage.setItem('sedapal_admin_auth', 'true');
+    sessionStorage.setItem('sedapal_admin_user', email);
+    setIsLocalAdminModalOpen(false);
+    if (onAdminLoginSuccess) {
+      onAdminLoginSuccess(email);
+    }
+  };
+
+  const handleLogout = () => {
+    setLocalIsAdmin(false);
+    setLocalAdminUser('');
+    sessionStorage.removeItem('sedapal_admin_auth');
+    sessionStorage.removeItem('sedapal_admin_user');
+    if (onLogoutAdmin) {
+      onLogoutAdmin();
+    }
+  };
 
   const filtered = responses.filter(r => {
     const matchesFormat = selectedFormatFilter === 'ALL' || r.formatType === selectedFormatFilter;
@@ -61,9 +105,15 @@ export const SurveyHistory: React.FC<SurveyHistoryProps> = ({
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <span className="bg-[#E8F4FC] text-[#005DAA] text-xs font-extrabold px-2 py-0.5 rounded-md border border-[#B3D8F5]">
+              <span className="bg-[#E8F4FC] text-[#005DAA] text-xs font-extrabold px-2.5 py-0.5 rounded-md border border-[#B3D8F5]">
                 SEDAPAL • Historial GCFO0131
               </span>
+              {isAdmin && (
+                <span className="bg-emerald-50 text-emerald-800 text-[11px] font-bold px-2 py-0.5 rounded-md border border-emerald-200 inline-flex items-center space-x-1">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Modo Edición Habilitado</span>
+                </span>
+              )}
             </div>
             <h1 className="text-xl font-bold text-slate-900 mt-1">
               Historial de Evaluaciones Registradas
@@ -75,11 +125,45 @@ export const SurveyHistory: React.FC<SurveyHistoryProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
+          {/* Admin Mode Button / Status */}
+          {isAdmin ? (
+            <div className="inline-flex items-center space-x-2 px-3 py-2 bg-emerald-50 border border-emerald-300 rounded-xl text-xs text-emerald-900 shadow-2xs">
+              <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+              <div className="flex flex-col">
+                <span className="text-[10px] font-extrabold text-emerald-700 leading-tight">ADMINISTRADOR</span>
+                <span className="text-[11px] font-bold text-slate-800 leading-tight">{adminUser || 'jchavezv@sedapal.com.pe'}</span>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="ml-1 inline-flex items-center space-x-1 px-2 py-1 bg-white hover:bg-rose-50 text-rose-700 text-[11px] font-bold rounded-lg border border-slate-200 hover:border-rose-300 transition shadow-2xs cursor-pointer"
+                title="Cerrar sesión de administrador"
+              >
+                <LogOut className="w-3 h-3 text-rose-600" />
+                <span>Salir</span>
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => {
+                if (onOpenAdminModal) {
+                  onOpenAdminModal();
+                } else {
+                  setIsLocalAdminModalOpen(true);
+                }
+              }}
+              className="inline-flex items-center space-x-1.5 px-3 py-2 text-xs font-bold text-[#003865] bg-sky-50 hover:bg-sky-100/90 border border-sky-300 rounded-xl transition shadow-xs cursor-pointer"
+              title="Iniciar sesión para habilitar Edición y Eliminación"
+            >
+              <Shield className="w-4 h-4 text-[#005DAA]" />
+              <span>Administrador</span>
+            </button>
+          )}
+
           {/* Export All Excel Button */}
           {filtered.length > 0 && (
             <button
               onClick={() => exportAllSurveysToExcel(filtered, 'Historial_Evaluaciones_SEDAPAL_GCFO0131')}
-              className="inline-flex items-center space-x-1.5 px-3 py-2 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-xl transition shadow-xs"
+              className="inline-flex items-center space-x-1.5 px-3 py-2 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-xl transition shadow-xs cursor-pointer"
               title="Descargar listado completo filtrado en formato Excel (.xlsx)"
             >
               <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
@@ -221,7 +305,7 @@ export const SurveyHistory: React.FC<SurveyHistoryProps> = ({
                       <div className="inline-flex items-center space-x-1.5 bg-slate-50 p-1 rounded-lg border border-slate-200">
                         <button
                           onClick={() => exportSingleSurveyToPDF(r)}
-                          className="inline-flex items-center space-x-1 px-2 py-1 bg-white hover:bg-rose-50 text-rose-700 hover:text-rose-800 rounded-md border border-slate-200 hover:border-rose-300 transition text-[11px] font-bold shadow-2xs"
+                          className="inline-flex items-center space-x-1 px-2 py-1 bg-white hover:bg-rose-50 text-rose-700 hover:text-rose-800 rounded-md border border-slate-200 hover:border-rose-300 transition text-[11px] font-bold shadow-2xs cursor-pointer"
                           title="Descargar Ficha individual en PDF"
                         >
                           <FileText className="w-3.5 h-3.5 text-rose-600" />
@@ -229,7 +313,7 @@ export const SurveyHistory: React.FC<SurveyHistoryProps> = ({
                         </button>
                         <button
                           onClick={() => exportSingleSurveyToExcel(r)}
-                          className="inline-flex items-center space-x-1 px-2 py-1 bg-white hover:bg-emerald-50 text-emerald-700 hover:text-emerald-800 rounded-md border border-slate-200 hover:border-emerald-300 transition text-[11px] font-bold shadow-2xs"
+                          className="inline-flex items-center space-x-1 px-2 py-1 bg-white hover:bg-emerald-50 text-emerald-700 hover:text-emerald-800 rounded-md border border-slate-200 hover:border-emerald-300 transition text-[11px] font-bold shadow-2xs cursor-pointer"
                           title="Descargar Ficha individual en Excel (.xlsx)"
                         >
                           <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
@@ -238,27 +322,38 @@ export const SurveyHistory: React.FC<SurveyHistoryProps> = ({
                       </div>
                     </td>
                     <td className="py-3.5 px-4 text-right space-x-1.5 whitespace-nowrap">
+                      {/* View Detail Button - Always Available */}
                       <button
                         onClick={() => setSelectedResponse(r)}
-                        className="p-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 rounded-lg transition border border-sky-200"
+                        className="p-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 rounded-lg transition border border-sky-200 cursor-pointer"
                         title="Ver detalle de la evaluación"
                       >
                         <Eye className="w-4 h-4 text-sky-600" />
                       </button>
-                      <button
-                        onClick={() => setEditingResponse(r)}
-                        className="p-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-lg transition border border-amber-200"
-                        title="Editar campos y respuestas de la encuesta"
-                      >
-                        <Pencil className="w-4 h-4 text-amber-600" />
-                      </button>
-                      <button
-                        onClick={() => onDeleteResponse(r.id)}
-                        className="p-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition border border-red-200"
-                        title="Eliminar registro"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+
+                      {/* Edit & Delete Buttons - ONLY Available for Authenticated Administrator */}
+                      {isAdmin && (
+                        <>
+                          <button
+                            onClick={() => setEditingResponse(r)}
+                            className="p-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-lg transition border border-amber-200 cursor-pointer animate-in fade-in"
+                            title="Editar campos y respuestas de la encuesta (Modo Administrador)"
+                          >
+                            <Pencil className="w-4 h-4 text-amber-600" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (window.confirm(`¿Está seguro de eliminar permanentemente la evaluación de "${r.clientName}" (${r.serviceOrderOrExpedient})?`)) {
+                                onDeleteResponse(r.id);
+                              }
+                            }}
+                            className="p-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition border border-red-200 cursor-pointer animate-in fade-in"
+                            title="Eliminar registro (Modo Administrador)"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -284,23 +379,25 @@ export const SurveyHistory: React.FC<SurveyHistoryProps> = ({
                 </h3>
               </div>
               <div className="flex items-center space-x-2">
-                {/* Edit Button in Detail Modal */}
-                <button
-                  onClick={() => {
-                    const toEdit = selectedResponse;
-                    setSelectedResponse(null);
-                    setEditingResponse(toEdit);
-                  }}
-                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-xs rounded-xl border border-amber-300 transition"
-                  title="Editar los datos y respuestas de esta evaluación"
-                >
-                  <Pencil className="w-3.5 h-3.5 text-amber-600" />
-                  <span>Editar</span>
-                </button>
+                {/* Edit Button in Detail Modal - ONLY for Administrator */}
+                {isAdmin && (
+                  <button
+                    onClick={() => {
+                      const toEdit = selectedResponse;
+                      setSelectedResponse(null);
+                      setEditingResponse(toEdit);
+                    }}
+                    className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-xs rounded-xl border border-amber-300 transition cursor-pointer"
+                    title="Editar los datos y respuestas de esta evaluación"
+                  >
+                    <Pencil className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Editar</span>
+                  </button>
+                )}
                 {/* Download Actions in Modal Header */}
                 <button
                   onClick={() => exportSingleSurveyToPDF(selectedResponse)}
-                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl border border-rose-200 transition"
+                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl border border-rose-200 transition cursor-pointer"
                   title="Descargar Ficha en PDF"
                 >
                   <FileText className="w-3.5 h-3.5 text-rose-600" />
@@ -308,7 +405,7 @@ export const SurveyHistory: React.FC<SurveyHistoryProps> = ({
                 </button>
                 <button
                   onClick={() => exportSingleSurveyToExcel(selectedResponse)}
-                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs rounded-xl border border-emerald-200 transition"
+                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs rounded-xl border border-emerald-200 transition cursor-pointer"
                   title="Descargar Ficha en Excel (.xlsx)"
                 >
                   <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
@@ -316,7 +413,7 @@ export const SurveyHistory: React.FC<SurveyHistoryProps> = ({
                 </button>
                 <button
                   onClick={() => setSelectedResponse(null)}
-                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition ml-2"
+                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition ml-2 cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -416,14 +513,14 @@ export const SurveyHistory: React.FC<SurveyHistoryProps> = ({
               <div className="flex items-center space-x-2">
                 <button
                   onClick={() => exportSingleSurveyToPDF(selectedResponse)}
-                  className="inline-flex items-center space-x-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl transition shadow-xs"
+                  className="inline-flex items-center space-x-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl transition shadow-xs cursor-pointer"
                 >
                   <FileText className="w-4 h-4" />
                   <span>Descargar Ficha PDF</span>
                 </button>
                 <button
                   onClick={() => exportSingleSurveyToExcel(selectedResponse)}
-                  className="inline-flex items-center space-x-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition shadow-xs"
+                  className="inline-flex items-center space-x-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition shadow-xs cursor-pointer"
                 >
                   <FileSpreadsheet className="w-4 h-4" />
                   <span>Descargar Ficha Excel (.xlsx)</span>
@@ -431,20 +528,22 @@ export const SurveyHistory: React.FC<SurveyHistoryProps> = ({
               </div>
 
               <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => {
-                    const toEdit = selectedResponse;
-                    setSelectedResponse(null);
-                    setEditingResponse(toEdit);
-                  }}
-                  className="inline-flex items-center space-x-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl transition shadow-xs"
-                >
-                  <Pencil className="w-3.5 h-3.5" />
-                  <span>Editar Evaluación</span>
-                </button>
+                {isAdmin && (
+                  <button
+                    onClick={() => {
+                      const toEdit = selectedResponse;
+                      setSelectedResponse(null);
+                      setEditingResponse(toEdit);
+                    }}
+                    className="inline-flex items-center space-x-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl transition shadow-xs cursor-pointer"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    <span>Editar Evaluación</span>
+                  </button>
+                )}
                 <button
                   onClick={() => setSelectedResponse(null)}
-                  className="px-5 py-2 bg-slate-200 text-slate-800 text-xs font-bold rounded-xl hover:bg-slate-300 transition"
+                  className="px-5 py-2 bg-slate-200 text-slate-800 text-xs font-bold rounded-xl hover:bg-slate-300 transition cursor-pointer"
                 >
                   Cerrar
                 </button>
@@ -469,6 +568,13 @@ export const SurveyHistory: React.FC<SurveyHistoryProps> = ({
           }}
         />
       )}
+
+      {/* Admin Login Modal */}
+      <AdminLoginModal
+        isOpen={isLocalAdminModalOpen}
+        onClose={() => setIsLocalAdminModalOrgan(false)}
+        onSuccess={handleAdminSuccess}
+      />
 
     </div>
   );
