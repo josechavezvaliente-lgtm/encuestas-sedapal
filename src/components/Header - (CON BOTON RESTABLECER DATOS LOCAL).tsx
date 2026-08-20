@@ -1,5 +1,5 @@
 import React from 'react';
-import { BarChart3, History, HelpCircle, PlusCircle, Share2 } from 'lucide-react';
+import { BarChart3, History, HelpCircle, RefreshCw, PlusCircle, Share2 } from 'lucide-react';
 import { FormatType } from '../types';
 import { SedapalLogo } from './SedapalLogo';
 
@@ -58,6 +58,14 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <Share2 className="w-3.5 h-3.5" />
               <span>Compartir Encuesta</span>
+            </button>
+
+            <button
+              onClick={onResetData}
+              title="Restablecer base de datos local"
+              className="flex items-center space-x-1 bg-[#002c52] hover:bg-[#002342] text-slate-300 px-2.5 py-1.5 rounded-lg border border-sky-500/30 transition"
+            >
+              <RefreshCw className="w-3.5 h-3.5 text-sky-300" />
             </button>
           </div>
         </div>
@@ -119,3 +127,4 @@ export const Header: React.FC<HeaderProps> = ({
     </header>
   );
 };
+
