@@ -255,12 +255,7 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({
               <span className="text-slate-500 font-medium">Expediente / Remesa / Doc. Ref.:</span>
               <span className="font-semibold text-slate-800">{submittedSuccess.serviceOrderOrExpedient}</span>
             </div>
-            <div className="flex justify-between border-b border-slate-200 pb-2">
-              <span className="text-slate-500 font-medium">Puntaje Promedio:</span>
-              <span className={`font-bold text-base ${submittedSuccess.averageScore >= 8 ? 'text-emerald-600' : 'text-amber-600'}`}>
-                {submittedSuccess.averageScore} / 10
-              </span>
-            </div>
+            
             <div className="flex justify-between">
               <span className="text-slate-500 font-medium">Alertas (&lt; 8 con motivo):</span>
               <span className="font-semibold text-slate-800">

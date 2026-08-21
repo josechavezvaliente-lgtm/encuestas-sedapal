@@ -78,7 +78,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
         </div>
 
         <p className="text-xs text-slate-600 leading-relaxed">
-          Ingrese sus credenciales de administrador para habilitar las opciones avanzadas de <strong>Edición</strong> y <strong>Eliminación</strong> de encuestas.
+          Ingrese sus credenciales de administrador
         </p>
 
         {isSuccess ? (
