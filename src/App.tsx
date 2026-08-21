@@ -59,11 +59,10 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // ... (tus funciones handleSaveSurvey, handleUpdateSurvey, etc. igual que antes)
   const handleSaveSurvey = async (newResponse: SurveyResponse) => { setResponses(await saveSurveyResponseAsync(newResponse)); };
   const handleUpdateSurvey = async (updatedResponse: SurveyResponse) => { setResponses(await updateSurveyResponseAsync(updatedResponse)); };
   const handleDeleteResponse = async (id: string) => { setResponses(await deleteSurveyResponseAsync(id)); };
-  const handleResetData = async () => { if (window.confirm('¿Restablecer datos?')) setResponses(await resetSurveyResponsesAsync()); };
+  const handleResetData = async () => { if (window.confirm('¿Está seguro de restablecer los datos? Esto recargará las encuestas de prueba por defecto.')) { const reseted = await resetSurveyResponsesAsync(); setResponses(reseted); } };
 
   if (isRespondentMode) return <PublicSurveyView format={selectedFormat} setFormat={setSelectedFormat} onSaveSurvey={handleSaveSurvey} />;
 
@@ -93,6 +92,15 @@ export default function App() {
         )}
         {activeTab === 'questions' && <FormatQuestionsModal />}
       </main>
+
+      {/* Modal para Compartir Encuesta */}
+      <ShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        currentFormat={selectedFormat}
+        adminPin="1234"
+      />
+
       <AdminLoginModal isOpen={isAdminModalOpen} onClose={() => setIsAdminModalOpen(false)} onSuccess={handleAdminSuccess} />
     </div>
   );
